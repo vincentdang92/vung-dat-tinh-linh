@@ -1,0 +1,10 @@
+{
+  "name": "Happy Land – Vùng đất Vui Vẻ",
+  "short_name": "Happy Land",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#12180f",
+  "theme_color": "#12180f",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

@@ -1,0 +1,52 @@
+# Chạy:   docker compose up -d --build                     (chỉ local: http://localhost:8080)
+#         docker compose --profile quick up -d --build     (+ link trycloudflare.com tạm thời)
+#         docker compose --profile named up -d --build     (+ tunnel có domain riêng, cần TUNNEL_TOKEN trong .env)
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - gamedata:/data
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_KEY=${SUPABASE_KEY:-}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:2567/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
+  web:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - server
+
+  # Quick tunnel: không cần tài khoản, mỗi lần chạy ra 1 link *.trycloudflare.com mới
+  tunnel-quick:
+    image: cloudflare/cloudflared:latest
+    profiles: ["quick"]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://web:80
+    depends_on:
+      - web
+
+  # Named tunnel: domain cố định. Tạo tunnel trong Cloudflare Zero Trust,
+  # trỏ Public Hostname -> http://web:80, dán token vào .env
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ["named"]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    depends_on:
+      - web
+
+volumes:
+  gamedata:

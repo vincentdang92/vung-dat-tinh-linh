@@ -1,0 +1,17 @@
+{
+  "name": "happy-land-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/index.ts",
+    "dev": "node --experimental-strip-types --disable-warning=ExperimentalWarning --watch src/index.ts",
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/sim.test.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=22.6"
+  }
+}
