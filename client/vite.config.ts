@@ -18,6 +18,14 @@ function noStoreInDev(): Plugin {
         next();
       });
     },
+    configurePreviewServer(server) {
+      server.middlewares.use((_req, res, next) => {
+        const set = res.setHeader.bind(res);
+        res.setHeader = (name, value) => set(name, String(name).toLowerCase() === 'cache-control' ? 'no-store, max-age=0' : value);
+        res.setHeader('Cache-Control', 'no-store');
+        next();
+      });
+    },
   };
 }
 
@@ -31,6 +39,15 @@ export default defineConfig({
     proxy: {
       '/ws': { target: 'ws://localhost:2567', ws: true },
       '/api': { target: 'http://localhost:2567' }, // API đăng nhập nhanh
+    },
+  },
+  preview: {
+    host: true,
+    port: 5173,
+    allowedHosts: true,
+    proxy: {
+      '/ws': { target: 'ws://localhost:2567', ws: true },
+      '/api': { target: 'http://localhost:2567' },
     },
   },
   build: {
