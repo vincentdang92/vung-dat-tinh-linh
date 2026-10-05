@@ -282,6 +282,136 @@ function useNow(active: boolean) {
   return now;
 }
 
+// ------------------------------------------------------------------ Menu Thu Gọn / Mở Rộng Mobile
+function GameMenu({ modalOpen }: { modalOpen?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const me = useStore((s) => s.me);
+  const chatOpen = useStore((s) => s.chatOpen);
+  const skillSp = me?.skills?.sp ?? 0;
+  const marketEarnings = me?.marketEarnings ?? 0;
+  const hasAlert = skillSp > 0 || marketEarnings > 0;
+
+  // Tự động đóng menu khi người chơi mở bất kỳ modal nào hoặc ấn Escape
+  useEffect(() => {
+    if (modalOpen) setOpen(false);
+  }, [modalOpen]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  const openFeature = (patch: Record<string, unknown>) => {
+    setOpen(false);
+    store.set({
+      invOpen: false, bagOpen: false, skillOpen: false,
+      farmOpen: false, marketOpen: false, codexOpen: false,
+      noticeOpen: false, triviaOpen: false,
+      ...patch,
+    } as any);
+  };
+
+  return (
+    <div class="game-menu-wrapper">
+      {/* Thanh nút thu gọn: Nút Chat nhanh + Nút Menu Tính Năng */}
+      <div class="game-menu-bar">
+        <button
+          class={`icon-btn menu-chat-btn ${chatOpen ? 'active' : ''}`}
+          title="Kênh Chat"
+          onClick={() => store.set({ chatOpen: !chatOpen })}
+        >
+          💬
+        </button>
+        <button
+          class={`icon-btn menu-toggle-btn ${open ? 'active' : ''}`}
+          title={open ? 'Đóng Menu' : 'Mở Menu Tính Năng'}
+          onClick={() => setOpen(!open)}
+        >
+          <span class="menu-icon-symbol">{open ? '✕' : '❖'}</span>
+          {!open && hasAlert && <span class="menu-alert-dot" />}
+        </button>
+      </div>
+
+      {/* Khay tính năng mở rộng dạng lưới (Grid Popover) */}
+      {open && (
+        <>
+          <div class="game-menu-backdrop" onClick={() => setOpen(false)} />
+          <div class="game-menu-popover">
+            <div class="menu-popover-header">
+              <span class="menu-popover-title">❖ TÍNH NĂNG</span>
+              <button class="icon-btn small ghost" onClick={() => setOpen(false)}>✕</button>
+            </div>
+            <div class="menu-grid">
+              <button class="menu-item-btn" onClick={() => openFeature({ skillOpen: true })}>
+                <div class="menu-icon-wrap">
+                  <span class="menu-icon">⚔️</span>
+                  {skillSp > 0 && <span class="badge-sp">{skillSp}</span>}
+                </div>
+                <span class="menu-label">Võ Học</span>
+              </button>
+
+              <button class="menu-item-btn" onClick={() => openFeature({ invOpen: true })}>
+                <div class="menu-icon-wrap">
+                  <span class="menu-icon">🎒</span>
+                  <span class="menu-count-badge">{(me?.inv?.length ?? 0)}/16</span>
+                </div>
+                <span class="menu-label">Túi Đồ</span>
+              </button>
+
+              <button class="menu-item-btn" onClick={() => openFeature({ bagOpen: true })}>
+                <div class="menu-icon-wrap">
+                  <span class="menu-icon">🧺</span>
+                </div>
+                <span class="menu-label">Giỏ Tre</span>
+              </button>
+
+              <button class="menu-item-btn" onClick={() => openFeature({ farmOpen: true, farmTab: 'my' })}>
+                <div class="menu-icon-wrap">
+                  <span class="menu-icon">🌾</span>
+                </div>
+                <span class="menu-label">Nông Trại</span>
+              </button>
+
+              <button class="menu-item-btn" onClick={() => { marketGet(); openFeature({ marketOpen: true, marketTab: 'browse' }); }}>
+                <div class="menu-icon-wrap">
+                  <span class="menu-icon">🏮</span>
+                  {marketEarnings > 0 && <span class="menu-gold-badge">+{marketEarnings}</span>}
+                </div>
+                <span class="menu-label">Chợ Phiên</span>
+              </button>
+
+              <button class="menu-item-btn" onClick={() => openFeature({ triviaOpen: true, triviaTab: 'board' })}>
+                <div class="menu-icon-wrap">
+                  <span class="menu-icon">📜</span>
+                </div>
+                <span class="menu-label">Bảng Vàng</span>
+              </button>
+
+              <button class="menu-item-btn" onClick={() => openFeature({ codexOpen: true })}>
+                <div class="menu-icon-wrap">
+                  <span class="menu-icon">🖼️</span>
+                </div>
+                <span class="menu-label">Đông Hồ</span>
+              </button>
+
+              <button class="menu-item-btn" onClick={() => openFeature({ noticeOpen: true })}>
+                <div class="menu-icon-wrap">
+                  <span class="menu-icon">📢</span>
+                </div>
+                <span class="menu-label">Cáo Thị</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function Hud() {
   const hp = useStore((s) => s.hp);
   const maxHp = useStore((s) => s.maxHp);
@@ -304,7 +434,7 @@ function Hud() {
   const farmOpen = useStore((s) => s.farmOpen);
   const marketOpen = useStore((s) => s.marketOpen);
   const skillOpen = useStore((s) => s.skillOpen);
-  const modalOpen = !!dialogue || shopOpen || triviaOpen || codexOpen || noticeOpen || cookOpen || farmOpen || marketOpen || skillOpen;
+  const modalOpen = !!dialogue || shopOpen || triviaOpen || codexOpen || noticeOpen || cookOpen || farmOpen || marketOpen || skillOpen || invOpen || bagOpen;
 
   return (
     <>
@@ -331,22 +461,7 @@ function Hud() {
 
       {me?.visitFarm && <VisitingBanner farm={me.visitFarm} />}
 
-      <div class="top-buttons">
-        <button class="icon-btn skill-btn-wrap" title="Võ Học & Bí Kíp" onClick={() => store.set({ skillOpen: !skillOpen, invOpen: false, bagOpen: false, farmOpen: false, marketOpen: false })}>
-          ⚔️
-          {(me?.skills?.sp ?? 0) > 0 && <span class="badge-sp">{me?.skills?.sp}</span>}
-        </button>
-        <button class="icon-btn" title="Túi đồ" onClick={() => store.set({ invOpen: !invOpen, bagOpen: false, farmOpen: false, marketOpen: false, skillOpen: false })}>🎒</button>
-        <button class="icon-btn" title="Giỏ Tre (Nghề Sống)" onClick={() => store.set({ bagOpen: !bagOpen, invOpen: false, farmOpen: false, marketOpen: false, skillOpen: false })}>🧺</button>
-        <button class="icon-btn" title="Nông Trại & Canh Nông" onClick={() => store.set({ farmOpen: !farmOpen, invOpen: false, bagOpen: false, marketOpen: false, skillOpen: false })}>🌾</button>
-        <button class="icon-btn" title="Chợ Phiên Làng Tre" onClick={() => {
-          if (!marketOpen) { marketGet(); }
-          store.set({ marketOpen: !marketOpen, invOpen: false, bagOpen: false, farmOpen: false, skillOpen: false });
-        }}>🏮</button>
-        <button class="icon-btn" title="Sổ tay Tranh Đông Hồ" onClick={() => store.set({ codexOpen: !codexOpen })}>🖼️</button>
-        <button class="icon-btn" title="Cáo Thị Làng" onClick={() => store.set({ noticeOpen: !noticeOpen })}>📜</button>
-        <button class="icon-btn" title="Kênh chat" onClick={() => store.set({ chatOpen: !store.get().chatOpen })}>💬</button>
-      </div>
+      <GameMenu modalOpen={modalOpen} />
 
       <ChatLog />
       <Joystick />

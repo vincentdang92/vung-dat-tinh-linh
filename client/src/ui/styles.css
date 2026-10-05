@@ -73,7 +73,114 @@ button { font: inherit; color: inherit; }
 .bar span { position: absolute; inset: 0; font-size: 9.5px; line-height: 12px; text-align: center; font-weight: 700; text-shadow: 0 1px 1px #000; }
 .top-right { text-align: right; flex: none; }
 .gold { color: var(--accent); font-weight: 700; font-size: 13px; }
-.top-buttons { position: absolute; top: calc(64px + var(--safe-t)); right: 8px; display: flex; flex-direction: column; gap: 6px; }
+/* Game Menu: Menu Thu Gọn / Mở Rộng tối ưu cho Mobile */
+.game-menu-wrapper {
+  position: absolute; top: calc(56px + var(--safe-t)); right: 8px;
+  z-index: 45; pointer-events: auto;
+}
+.game-menu-bar {
+  display: flex; gap: 6px; align-items: center; justify-content: flex-end;
+}
+.menu-chat-btn {
+  width: 38px; height: 38px; border-radius: 12px;
+  background: rgba(15, 23, 42, 0.75); border: 1.5px solid rgba(255, 255, 255, 0.15);
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
+  cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+.menu-chat-btn:hover { border-color: #38bdf8; background: rgba(14, 116, 144, 0.35); }
+.menu-chat-btn.active {
+  border-color: #38bdf8; background: rgba(14, 116, 144, 0.5);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+}
+
+.menu-toggle-btn {
+  width: 38px; height: 38px; border-radius: 12px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+  border: 1.5px solid var(--accent); color: var(--accent); font-size: 17px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; position: relative;
+  cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+.menu-toggle-btn:hover { background: rgba(242, 193, 78, 0.18); transform: translateY(-1px); }
+.menu-toggle-btn.active {
+  background: var(--accent); color: #18140e; border-color: #fde047;
+  box-shadow: 0 0 14px rgba(242, 193, 78, 0.65);
+}
+.menu-icon-symbol { line-height: 1; }
+
+.menu-alert-dot {
+  position: absolute; top: -2px; right: -2px; width: 10px; height: 10px;
+  border-radius: 50%; background: #ef4444; border: 2px solid #18140e;
+  box-shadow: 0 0 8px #ef4444; animation: menuPulse 1.5s infinite;
+}
+
+.game-menu-backdrop {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45);
+  z-index: 44; animation: menuFadeIn 0.15s ease-out;
+}
+.game-menu-popover {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  width: 288px; max-width: calc(100vw - 20px);
+  background: linear-gradient(180deg, rgba(24, 20, 14, 0.97) 0%, rgba(15, 23, 42, 0.97) 100%);
+  border: 2px solid var(--accent); border-radius: 16px;
+  padding: 10px 12px 12px; box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(12px); z-index: 46;
+  animation: menuSlideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.menu-popover-header {
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid rgba(242, 193, 78, 0.2); padding-bottom: 6px; margin-bottom: 8px;
+}
+.menu-popover-title {
+  font-size: 12px; font-weight: 800; color: #fde047; letter-spacing: 1px;
+  display: flex; align-items: center; gap: 4px;
+}
+.menu-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+}
+.menu-item-btn {
+  background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px; padding: 8px 4px 6px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  cursor: pointer; transition: all 0.15s ease; color: var(--text);
+}
+.menu-item-btn:hover {
+  background: rgba(242, 193, 78, 0.12); border-color: rgba(242, 193, 78, 0.4);
+  transform: translateY(-2px);
+}
+.menu-item-btn:active { transform: scale(0.95); }
+.menu-icon-wrap {
+  position: relative; font-size: 20px; width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+}
+.menu-label {
+  font-size: 10.5px; font-weight: 600; color: #e2e8f0; text-align: center; white-space: nowrap;
+}
+.menu-count-badge {
+  position: absolute; bottom: -2px; right: -8px; font-size: 8px;
+  background: rgba(0, 0, 0, 0.75); border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #94a3b8; border-radius: 4px; padding: 0 3px; line-height: 10px; font-weight: 600;
+}
+.menu-gold-badge {
+  position: absolute; top: -3px; right: -8px; font-size: 8.5px;
+  background: #eab308; color: #18140e; border-radius: 999px;
+  padding: 0 4px; font-weight: 800; line-height: 11px;
+  box-shadow: 0 0 6px rgba(234, 179, 8, 0.6);
+}
+
+@keyframes menuSlideDown {
+  from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes menuFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes menuPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.25); opacity: 0.8; }
+}
+
 .icon-btn { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0,0,0,.5); font-size: 18px; cursor: pointer; }
 .icon-btn.small { width: 32px; height: 32px; font-size: 14px; }
 
