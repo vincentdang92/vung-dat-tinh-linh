@@ -4,7 +4,8 @@
 // Sau này đổi sang Supabase Auth thật chỉ cần thay file này.
 
 import { createHmac, createHash, timingSafeEqual, randomUUID, randomBytes } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync, readdirSync } from 'node:fs';
+import { mkdirSync, readFileSync, existsSync, readdirSync } from 'node:fs';
+import { writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { emailError, passwordError, normalizeEmail, SESSION_MS } from '../../shared/auth.ts';
@@ -55,10 +56,10 @@ export class AccountStore {
     return existsSync(f) ? this.readFile(f) : null;
   }
 
-  private writeLocal(a: Account) {
+  private async writeLocal(a: Account) {
     const f = this.file(a.email);
-    writeFileSync(`${f}.tmp`, JSON.stringify(a));
-    renameSync(`${f}.tmp`, f);
+    await writeFile(`${f}.tmp`, JSON.stringify(a), 'utf8');
+    await rename(`${f}.tmp`, f);
   }
 
   private live(): SupabaseClient | null {
@@ -82,7 +83,7 @@ export class AccountStore {
       if (error) this.dbError(error);
       else if (data) {
         const a: Account = { email: data.email, profileToken: data.profile_token ?? null, createdAt: data.created_at };
-        this.writeLocal(a);
+        void this.writeLocal(a).catch((e) => console.error('[Auth] Lỗi writeLocal:', e));
         return a;
       } else {
         // tạo lúc chưa có bảng trên Supabase -> đồng bộ lên
@@ -95,7 +96,7 @@ export class AccountStore {
   }
 
   async save(a: Account): Promise<void> {
-    this.writeLocal(a);
+    await this.writeLocal(a);
     const db = this.live();
     if (db) {
       const { error } = await db.from('accounts')

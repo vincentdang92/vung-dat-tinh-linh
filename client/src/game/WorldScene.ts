@@ -149,6 +149,7 @@ export class WorldScene extends Phaser.Scene {
   private plotViews: { root: Phaser.GameObjects.Container; gfx: Phaser.GameObjects.Graphics; mark: Phaser.GameObjects.Text; key: string }[] = [];
   private chickenViews: { root: Phaser.GameObjects.Container; body: Phaser.GameObjects.Graphics; tx: number; ty: number; nextWalk: number }[] = [];
   private nestGfx?: Phaser.GameObjects.Graphics;
+  private lastLowFreqSync = 0;
 
   // dự đoán phía client cho nhân vật của mình
   private pred: MoveState | null = null;
@@ -265,7 +266,8 @@ export class WorldScene extends Phaser.Scene {
     const late = this.offset - o;
     this.jitter = late > this.jitter ? late : this.jitter * 0.98 + late * 0.02;
     const snapGap = TICK_MS * SNAP_EVERY;
-    this.interpTarget = Phaser.Math.Clamp(snapGap + this.jitter + 30, INTERP_DELAY_MS, 500);
+    // Khống chế trần độ trễ nội suy tối đa 220ms (thay vì 500ms) để không bị cảm giác delay nửa giây
+    this.interpTarget = Phaser.Math.Clamp(snapGap + this.jitter + 15, 100, 220);
 
     this.snaps.push({
       st: s.st,
@@ -276,7 +278,7 @@ export class WorldScene extends Phaser.Scene {
       ev: s.ev,
       fired: false,
     });
-    if (this.snaps.length > 40) this.snaps.shift();
+    if (this.snaps.length > 16) this.snaps.shift();
 
     this.syncDrops(s.d);
     this.syncFires(s.cf ?? []);
@@ -396,9 +398,13 @@ export class WorldScene extends Phaser.Scene {
     const decay = Math.exp(-delta / 90);
     this.visOff.x *= decay; this.visOff.y *= decay;
 
+    // Chỉ đồng bộ nông trại và bẫy mỗi 250ms (thay vì 60-120fps) để giảm tải CPU
+    if (_time - this.lastLowFreqSync >= 250) {
+      this.lastLowFreqSync = _time;
+      this.syncTraps();
+      this.syncFarm();
+    }
     this.updateNpcs();
-    this.syncTraps();
-    this.syncFarm();
 
     if (this.offset == null || this.snaps.length === 0) return;
     // tăng nhanh khi mạng xấu đi, giảm chậm để không thấy hình bị tua
@@ -420,7 +426,7 @@ export class WorldScene extends Phaser.Scene {
     for (const s of this.snaps) {
       if (!s.fired && s.st <= renderT) { s.fired = true; for (const e of s.ev) this.fireEvent(e, s); }
     }
-    while (this.snaps.length > 2 && this.snaps[1].st < renderT - 1000) this.snaps.shift();
+    while (this.snaps.length > 2 && this.snaps[1].st < renderT - 350) this.snaps.shift();
 
     this.renderPlayers(a, b, t);
     this.renderMobs(a, b, t);
@@ -489,13 +495,18 @@ export class WorldScene extends Phaser.Scene {
     if (key !== h.animKey) { h.animKey = key; h.sprite.play(key); }
     h.sprite.setFlipX(flip);
 
-    // bùa bay vòng quanh: nửa vòng sau lưng thì nằm dưới sprite
-    h.talismans.forEach((tl, i) => {
-      const ang = now / 520 + i * Math.PI;
-      const s = Math.sin(ang);
-      tl.setPosition(Math.cos(ang) * 17, -12 + s * 5 + Math.sin(now / 200 + i) * 1.5);
-      if (s < 0) v.root.moveBelow(tl, h.sprite); else v.root.moveAbove(tl, h.sprite);
-    });
+    // bùa bay vòng quanh: chỉ reorder layer khi vị trí trước/sau thực sự thay đổi
+    if (h.talismans.length > 0) {
+      const spriteIdx = v.root.getIndex(h.sprite);
+      h.talismans.forEach((tl, i) => {
+        const ang = now / 520 + i * Math.PI;
+        const s = Math.sin(ang);
+        tl.setPosition(Math.cos(ang) * 17, -12 + s * 5 + Math.sin(now / 200 + i) * 1.5);
+        const tlIdx = v.root.getIndex(tl);
+        if (s < 0 && tlIdx > spriteIdx) v.root.moveBelow(tl, h.sprite);
+        else if (s >= 0 && tlIdx < spriteIdx) v.root.moveAbove(tl, h.sprite);
+      });
+    }
   }
 
   /** NPC chuyển sang hoạt ảnh nói khi đang mở hội thoại với mình; cập nhật dấu nhiệm vụ. */

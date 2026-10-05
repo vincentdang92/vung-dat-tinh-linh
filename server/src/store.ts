@@ -2,7 +2,8 @@
 // Tự động tương thích với các tài khoản cũ (điền giá trị mặc định cho nhiệm vụ và mảnh trống).
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
+import { mkdirSync, readFileSync, existsSync } from 'node:fs';
+import { writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { CLASSES, WEAPONS } from '../../shared/data.ts';
 import { isMapId } from '../../shared/map.ts';
@@ -92,12 +93,12 @@ export class ProfileStore {
     }
   }
 
-  /** Ghi dữ liệu ra file JSON cục bộ */
-  private saveLocal(p: Profile) {
+  /** Ghi dữ liệu ra file JSON cục bộ (bất đồng bộ, không block Event Loop) */
+  private async saveLocal(p: Profile) {
     const file = join(this.dir, `${p.token}.json`);
     const tmp = `${file}.tmp`;
-    writeFileSync(tmp, JSON.stringify(p));
-    renameSync(tmp, file);
+    await writeFile(tmp, JSON.stringify(p), 'utf8');
+    await rename(tmp, file);
   }
 
   async load(token: string): Promise<Profile | null> {
@@ -124,7 +125,7 @@ export class ProfileStore {
             const local = this.loadLocal(token);
             if (local?.life) prof.life = local.life;
           }
-          this.saveLocal(prof); // Cập nhật cache cục bộ
+          void this.saveLocal(prof).catch((e) => console.error('[Store] Lỗi cache cục bộ:', e)); // Cập nhật cache ngầm
           return prof;
         }
 
@@ -149,9 +150,9 @@ export class ProfileStore {
   async save(p: Profile): Promise<void> {
     if (!ProfileStore.validToken(p.token)) return;
 
-    // Luôn lưu cache file cục bộ để an toàn tuyệt đối
+    // Luôn lưu cache file cục bộ để an toàn tuyệt đối (không block tick loop)
     try {
-      this.saveLocal(p);
+      await this.saveLocal(p);
     } catch (err) {
       console.error('[Store] Lỗi lưu cache cục bộ:', err);
     }

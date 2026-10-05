@@ -157,8 +157,8 @@ function flush(list: Outgoing[]) {
     } else {
       const ws = sockets.get(o.to);
       if (!ws) continue;
-      // client mạng chậm: bỏ snapshot thay vì dồn bộ nhớ
-      if (o.msg.t === 'snap' && ws.bufferedAmount > 256 * 1024) continue;
+      // client mạng chậm: bỏ snapshot nếu buffer vượt 12KB (~2 snapshot) thay vì dồn 256KB
+      if (o.msg.t === 'snap' && ws.bufferedAmount > 12 * 1024) continue;
       send(ws, o.msg);
     }
   }
@@ -173,14 +173,17 @@ function loop() {
   acc += now - last;
   last = now;
   let n = 0;
+  let didSnap = false;
   while (acc >= TICK_MS && n < 5) {
     realm.tick();
     ticks++;
     flush(realm.drainOutbox());
-    if (ticks % SNAP_EVERY === 0) flush(realm.buildSnapshots());
+    if (ticks % SNAP_EVERY === 0) didSnap = true;
     acc -= TICK_MS;
     n++;
   }
+  // Chỉ gửi 1 snapshot mới nhất sau khi hoàn tất các tick bù trôi, tránh dồn 2-3 gói trong cùng 1 mili-giây
+  if (didSnap) flush(realm.buildSnapshots());
   if (acc > TICK_MS * 5) acc = 0; // server bị treo lâu: bỏ qua, không đuổi theo
   flush(realm.drainOutbox());
   setTimeout(loop, Math.max(1, TICK_MS - acc));
