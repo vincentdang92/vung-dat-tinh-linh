@@ -5,7 +5,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
-import { CLASSES, WEAPONS } from '../../shared/data.ts';
+import { CLASSES, WEAPONS, normalizeSkills } from '../../shared/data.ts';
 import { isMapId } from '../../shared/map.ts';
 import { normalizeLife } from '../../shared/life.ts';
 import type { Profile } from './world.ts';
@@ -76,6 +76,7 @@ export class ProfileStore {
       title: typeof p.title === 'string' ? p.title : '',
       mapId: isMapId(p.mapId) ? p.mapId : isMapId(p.mapid) ? p.mapid : 'lang_tre',
       life: normalizeLife(p.life),
+      skills: normalizeSkills(p.skills, Number(p.level) || 1),
     };
   }
 

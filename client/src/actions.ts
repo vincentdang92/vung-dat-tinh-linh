@@ -24,7 +24,7 @@ export function leave() {
   store.set({
     phase: 'lobby', me: null, chat: [], invOpen: false, chatOpen: false, dialogue: null, dead: false,
     fishing: null, cooking: null, cookOpen: false, bagOpen: false, catchToast: null, triviaResult: null,
-    nearWater: false, cookPlace: null, shopOpen: false, nearTrap: null, canTrap: false, trapReady: {},
+    nearWater: false, cookPlace: null, shopOpen: false, skillOpen: false, nearTrap: null, canTrap: false, trapReady: {},
   });
 }
 
@@ -108,6 +108,10 @@ export function marketCancel(id: string) { net?.send({ t: 'market_cancel', id })
 export function marketClaim() { net?.send({ t: 'market_claim' }); }
 export function npcMarketBuy(key: string, qty = 1) { net?.send({ t: 'npc_market_buy', key, qty }); }
 export function stallSet(open: boolean, name?: string) { net?.send({ t: 'stall_set', open, name }); }
+
+// ---- Võ Học & Nâng Cấp Kỹ Năng ----
+export function skillUpgrade(skill: 'main' | 'ult' | 'atk' | 'def' | 'spd') { net?.send({ t: 'skill_upgrade', skill }); }
+export function skillReset() { net?.send({ t: 'skill_reset' }); }
 
 window.addEventListener('rpg:skill', castSkill);
 window.addEventListener('rpg:ult', castUltimate);

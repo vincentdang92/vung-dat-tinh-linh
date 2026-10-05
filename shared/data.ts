@@ -207,13 +207,200 @@ export const ULTIMATES: Record<ClassId, UltimateDef> = {
   },
 };
 
-/** Chỉ số nhân vật theo cấp + vũ khí + số mảnh Trống Đồng (+5% máu/mảnh) + Tranh Đông Hồ. */
+// ------------------------------------------------------------------ Hệ Thống Võ Học & Nâng Cấp Kỹ Năng
+
+export interface SkillData {
+  sp: number;
+  mainLv: number; // 1..5
+  ultLv: number;  // 1..3
+  passives: {
+    atk: number;  // 0..5
+    def: number;  // 0..5
+    spd: number;  // 0..5
+  };
+}
+
+export function defaultSkills(level = 1): SkillData {
+  const totalSp = Math.max(0, level - 1);
+  return {
+    sp: totalSp,
+    mainLv: 1,
+    ultLv: 1,
+    passives: { atk: 0, def: 0, spd: 0 },
+  };
+}
+
+export function normalizeSkills(raw: any, level = 1): SkillData {
+  const totalSp = Math.max(0, level - 1);
+  if (!raw || typeof raw !== 'object') return defaultSkills(level);
+
+  const mainLv = Math.max(1, Math.min(5, Math.floor(Number(raw.mainLv)) || 1));
+  const ultLv = Math.max(1, Math.min(3, Math.floor(Number(raw.ultLv)) || 1));
+  const p = raw.passives && typeof raw.passives === 'object' ? raw.passives : {};
+  const atk = Math.max(0, Math.min(5, Math.floor(Number(p.atk)) || 0));
+  const def = Math.max(0, Math.min(5, Math.floor(Number(p.def)) || 0));
+  const spd = Math.max(0, Math.min(5, Math.floor(Number(p.spd)) || 0));
+
+  const spent = (mainLv - 1) + (ultLv - 1) + atk + def + spd;
+  if (spent > totalSp) {
+    return defaultSkills(level);
+  }
+
+  return {
+    sp: totalSp - spent,
+    mainLv,
+    ultLv,
+    passives: { atk, def, spd },
+  };
+}
+
+export interface SkillLevelDef {
+  lv: number;
+  desc: string;
+  mult: number;
+  cd: number; // ms
+  special?: string;
+}
+
+export interface UltLevelDef {
+  lv: number;
+  desc: string;
+  mult: number;
+  radius: number;
+  duration?: number;
+  special?: string;
+}
+
+export interface PassiveSkillDef {
+  id: 'atk' | 'def' | 'spd';
+  name: string;
+  desc: string;
+  maxLv: number;
+  perLevelText: string;
+}
+
+export const PASSIVE_SKILLS: Record<'atk' | 'def' | 'spd', PassiveSkillDef> = {
+  atk: {
+    id: 'atk',
+    name: 'Cường Lực',
+    desc: 'Tu luyện nội công, tăng sức công phá trong từng thế võ.',
+    maxLv: 5,
+    perLevelText: '+3 Công mỗi cấp (tối đa +15 Công)',
+  },
+  def: {
+    id: 'def',
+    name: 'Kim Cang',
+    desc: 'Luyện khí hộ thể, thân như đồng đúc, khí huyết dồi dào.',
+    maxLv: 5,
+    perLevelText: '+2 Giáp, +20 Máu mỗi cấp (tối đa +10 Giáp, +100 Máu)',
+  },
+  spd: {
+    id: 'spd',
+    name: 'Thần Hành',
+    desc: 'Khinh công linh hoạt, thân thủ phi phàm như gió lướt.',
+    maxLv: 5,
+    perLevelText: '+3% Tốc chạy, -0.2s hồi Khinh công mỗi cấp',
+  },
+};
+
+export interface ClassSkillTree {
+  main: {
+    name: string;
+    icon: string;
+    maxLv: number;
+    levels: SkillLevelDef[];
+  };
+  ult: {
+    name: string;
+    icon: string;
+    maxLv: number;
+    levels: UltLevelDef[];
+  };
+}
+
+export const CLASS_SKILL_TREES: Record<ClassId, ClassSkillTree> = {
+  warrior: {
+    main: {
+      name: 'Quét Tre Ngà',
+      icon: '🗡️',
+      maxLv: 5,
+      levels: [
+        { lv: 1, mult: 1.8, cd: 6000, desc: 'Vung kiếm tre quét vòng quanh người, gây 180% sát thương.' },
+        { lv: 2, mult: 2.1, cd: 5500, desc: 'Kiếm khí sắc lẹm, gây 210% sát thương và giảm 0.5s hồi chiêu.' },
+        { lv: 3, mult: 2.4, cd: 5000, desc: 'Tốc độ kiếm phong gia tăng, gây 240% sát thương và giảm 0.5s hồi chiêu.' },
+        { lv: 4, mult: 2.7, cd: 4500, desc: 'Uy lực bạt sơn, gây 270% sát thương và giảm 0.5s hồi chiêu.' },
+        { lv: 5, mult: 3.0, cd: 4000, desc: 'Đại thành tuyệt kỹ: Gây 300% sát thương, hất văng quái và làm choáng 0.6s!', special: 'Choáng 0.6s & Đẩy lùi quái' },
+      ],
+    },
+    ult: {
+      name: 'Phù Đổng Thiên Vương',
+      icon: '🐎',
+      maxLv: 3,
+      levels: [
+        { lv: 1, mult: 3.0, radius: 110, desc: 'Nện đất uy lực Phù Đổng: 300% sát thương vùng 110px, choáng quái 1.2s.' },
+        { lv: 2, mult: 3.6, radius: 125, desc: 'Địa chấn rền vang: 360% sát thương vùng 125px, choáng quái 1.5s.' },
+        { lv: 3, mult: 4.2, radius: 140, desc: 'Thần Gióng giáng thế: 420% sát thương vùng 140px, choáng quái 1.8s. Uy chấn bát phương!', special: 'Vùng nổ siêu rộng 140px & Choáng 1.8s' },
+      ],
+    },
+  },
+  archer: {
+    main: {
+      name: 'Nỏ Liên Châu',
+      icon: '🏹',
+      maxLv: 5,
+      levels: [
+        { lv: 1, mult: 0.9, cd: 5000, desc: 'Bắn 5 mũi tên hình quạt, mỗi mũi gây 90% sát thương.' },
+        { lv: 2, mult: 1.0, cd: 4600, desc: 'Kỹ thuật kéo dây mượt hơn, gây 100% sát thương mỗi mũi, hồi chiêu nhanh hơn.' },
+        { lv: 3, mult: 1.1, cd: 4200, desc: 'Tên tẩm hàn thiết, gây 110% sát thương và tăng phạm vi phủ quạt.' },
+        { lv: 4, mult: 1.2, cd: 3800, desc: 'Tốc độ rút tên phi phàm, gây 120% sát thương, tên bay nhanh hơn.' },
+        { lv: 5, mult: 1.3, cd: 3400, desc: 'Vạn tiễn tề phát: Bắn 7 mũi tên hình quạt (130% dmg/mũi), xuyên thấu quái đầu tiên!', special: 'Bắn 7 mũi tên & Xuyên thấu' },
+      ],
+    },
+    ult: {
+      name: 'Nỏ Thần Kim Quy',
+      icon: '🐢',
+      maxLv: 3,
+      levels: [
+        { lv: 1, mult: 0.6, radius: 90, duration: 3000, desc: 'Mưa tên vàng 3 giây (mỗi 0.25s gây 60% sát thương), vùng 90px.' },
+        { lv: 2, mult: 0.75, radius: 105, duration: 3500, desc: 'Mưa tên vàng 3.5 giây (mỗi 0.25s gây 75% sát thương), vùng 105px.' },
+        { lv: 3, mult: 0.9, radius: 120, duration: 4000, desc: 'Thần Nỏ uy linh 4 giây (mỗi 0.25s gây 90% sát thương), vùng 120px. Bách phát bách trúng!', special: 'Kéo dài 4 giây & Phủ diện rộng 120px' },
+      ],
+    },
+  },
+  mage: {
+    main: {
+      name: 'Lôi Phù',
+      icon: '⚡',
+      maxLv: 5,
+      levels: [
+        { lv: 1, mult: 2.5, cd: 7000, desc: 'Sau 0.6s, sấm sét giáng xuống vùng 72px gây 250% sát thương.' },
+        { lv: 2, mult: 2.8, cd: 6400, desc: 'Lôi quang mạnh mẽ, vùng 78px gây 280% sát thương.' },
+        { lv: 3, mult: 3.1, cd: 5800, desc: 'Triệu hồi thiên lôi nhanh hơn (0.5s), vùng 84px gây 310% sát thương.' },
+        { lv: 4, mult: 3.5, cd: 5200, desc: 'Sấm sét kinh thiên, vùng 90px gây 350% sát thương.' },
+        { lv: 5, mult: 4.0, cd: 4600, desc: 'Thiên kiếp giáng lâm (0.4s), vùng 96px gây 400% sát thương, tạo lôi trận làm chậm 50%!', special: 'Sấm giáng 0.4s, 400% dmg & Làm chậm 50%' },
+      ],
+    },
+    ult: {
+      name: 'Thủy Long Quyển',
+      icon: '🐉',
+      maxLv: 3,
+      levels: [
+        { lv: 1, mult: 0.8, radius: 70, duration: 4000, desc: '6 dòng nước xoay quanh người 4s, chạm gây 80% sát thương và làm chậm 40%.' },
+        { lv: 2, mult: 1.0, radius: 80, duration: 5000, desc: '7 dòng nước xoay quanh người 5s, chạm gây 100% sát thương và làm chậm 50%.' },
+        { lv: 3, mult: 1.25, radius: 90, duration: 6000, desc: 'Long Vương thức tỉnh: 8 dòng nước xoay 6s, chạm gây 125% sát thương và làm chậm 60%!', special: 'Xoay 6 giây, 8 dòng nước & Làm chậm 60%' },
+      ],
+    },
+  },
+};
+
+/** Chỉ số nhân vật theo cấp + vũ khí + số mảnh Trống Đồng (+5% máu/mảnh) + Tranh Đông Hồ + Tâm Pháp. */
 export function statsFor(
   cls: ClassId,
   level: number,
   weaponKey: string | null,
   drumPiecesCount = 0,
   prog?: Record<string, number>,
+  passives?: { atk?: number; def?: number; spd?: number },
 ) {
   const c = CLASSES[cls];
   const w = weaponKey ? WEAPONS[weaponKey] : undefined;
@@ -229,6 +416,11 @@ export function statsFor(
   if (prog?.codex_hung_dua) atk += 3;    // Hứng Dừa
   if (prog?.codex_dam_cuoi_chuot) def += 2; // Đám Cưới Chuột
   if (prog?.codex_vinh_hoa) speed = Math.round(speed * 1.05); // Vinh Hoa Phú Quý
+
+  // Thưởng chỉ số từ Nội Công Tâm Pháp
+  if (passives?.atk) atk += passives.atk * 3;
+  if (passives?.def) { def += passives.def * 2; maxHp += passives.def * 20; }
+  if (passives?.spd) speed = Math.round(speed * (1 + 0.03 * passives.spd));
 
   return {
     maxHp,

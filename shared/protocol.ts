@@ -1,7 +1,7 @@
 // Giao thức mạng (JSON qua WebSocket). Bản MVP dùng JSON cho dễ debug;
 // khi đông người có thể đổi sang nhị phân mà không đổi logic game.
 
-import type { ClassId, Rarity } from './data.ts';
+import type { ClassId, Rarity, SkillData } from './data.ts';
 import type { GameMap, MapId, MonsterKind } from './map.ts';
 import { moveWithCollision } from './map.ts';
 import { INPUT_DT, DASH_DIST, PLAYER_RADIUS } from './constants.ts';
@@ -21,6 +21,9 @@ export type ClientMsg =
   | { t: 'buy'; item: string } // Mua vật phẩm (bình máu)
   | { t: 'sell'; uid: number } // Bán vũ khí trong túi
   | { t: 'trivia'; qId: number; choice: number } // Trả lời câu đố dân gian
+  // ---- Võ Học & Nâng Cấp Kỹ Năng ----
+  | { t: 'skill_upgrade'; skill: 'main' | 'ult' | 'atk' | 'def' | 'spd' }
+  | { t: 'skill_reset' }
   // ---- Nghề Sống ----
   | { t: 'fish_cast' } // thả câu ở chỗ nước gần nhất
   | { t: 'fish_reel' } // giật cần khi phao chìm
@@ -105,6 +108,7 @@ export interface SelfState {
   visitFarm?: FarmVisitSelf | null;
   onlineFarmers?: { name: string; farmLv: number; likes: number }[];
   marketEarnings?: number; // Tiền vàng bán hàng chợ phiên chờ nhận
+  skills?: SkillData; // Hệ thống Võ Học & Điểm Kỹ Năng
 }
 
 /** Diễn biến câu cá gửi riêng cho người câu (để bấm "Giật!" đúng lúc). */

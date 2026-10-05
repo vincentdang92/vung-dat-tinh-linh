@@ -1299,6 +1299,71 @@ test('Bày sạp tại chỗ (stall) ở Chợ Làng: mở sạp, hiển thị s
   assert.equal(p.stall, null, 'sạp tự gập lại khi di chuyển');
 });
 
+test('hệ thống Võ Học (Bí Kíp): cộng SP khi lên cấp, nâng kỹ năng, tâm pháp và tẩy điểm', () => {
+  const w = mk();
+  const id = w.addPlayer(World.newProfile('t_skill', 'Hiệp Khách', 'warrior'));
+  const p = w.debugPlayer(id)!;
+
+  // Cấp 1: SP = 0, mainLv = 1, ultLv = 1, passives = { atk: 0, def: 0, spd: 0 }
+  assert.equal(p.prof.skills?.sp, 0);
+  assert.equal(p.prof.skills?.mainLv, 1);
+  assert.equal(p.prof.skills?.ultLv, 1);
+
+  // Thử nâng khi không có SP -> không nâng được
+  w.handle(id, { t: 'skill_upgrade', skill: 'main' });
+  assert.equal(p.prof.skills?.mainLv, 1);
+
+  // Lên cấp 5 -> nhận 4 SP
+  p.prof.level = 5;
+  p.prof.skills = (w as any).computeStats ? p.prof.skills : p.prof.skills;
+  // Giả lập lên cấp thông qua gainXp hoặc normalize
+  w.handle(id, { t: 'skill_reset' });
+  assert.equal(p.prof.skills?.sp, 4);
+
+  // Nâng chiêu chủ động lên cấp 2
+  w.handle(id, { t: 'skill_upgrade', skill: 'main' });
+  assert.equal(p.prof.skills?.mainLv, 2);
+  assert.equal(p.prof.skills?.sp, 3);
+
+  // Nâng tâm pháp Cường Lực (+3 Công)
+  const atk0 = p.stats.atk;
+  w.handle(id, { t: 'skill_upgrade', skill: 'atk' });
+  assert.equal(p.prof.skills?.passives.atk, 1);
+  assert.equal(p.prof.skills?.sp, 2);
+  assert.equal(p.stats.atk, atk0 + 3);
+
+  // Nâng tâm pháp Kim Cang (+2 Giáp, +20 Máu)
+  const def0 = p.stats.def;
+  const hp0 = p.stats.maxHp;
+  w.handle(id, { t: 'skill_upgrade', skill: 'def' });
+  assert.equal(p.prof.skills?.passives.def, 1);
+  assert.equal(p.prof.skills?.sp, 1);
+  assert.equal(p.stats.def, def0 + 2);
+  assert.equal(p.stats.maxHp, hp0 + 20);
+
+  // Nâng Tuyệt kỹ Phù Đổng Thiên Vương lên cấp 2
+  w.handle(id, { t: 'skill_upgrade', skill: 'ult' });
+  assert.equal(p.prof.skills?.ultLv, 2);
+  assert.equal(p.prof.skills?.sp, 0);
+
+  // Kiểm tra selfState chứa skills
+  const st = w.selfState(p);
+  assert.equal(st.skills?.mainLv, 2);
+  assert.equal(st.skills?.ultLv, 2);
+  assert.equal(st.skills?.sp, 0);
+
+  // Tẩy điểm: hồi lại 4 SP, cấp kỹ năng về 1, tâm pháp về 0, chỉ số reset
+  w.handle(id, { t: 'skill_reset' });
+  assert.equal(p.prof.skills?.sp, 4);
+  assert.equal(p.prof.skills?.mainLv, 1);
+  assert.equal(p.prof.skills?.ultLv, 1);
+  assert.equal(p.prof.skills?.passives.atk, 0);
+  assert.equal(p.prof.skills?.passives.def, 0);
+  assert.equal(p.stats.atk, atk0);
+  assert.equal(p.stats.def, def0);
+  assert.equal(p.stats.maxHp, hp0);
+});
+
 
 
 

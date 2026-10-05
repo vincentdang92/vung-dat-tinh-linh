@@ -8,9 +8,10 @@ import {
   farmPlow, farmPlant, farmWater, farmWeed, farmFertilize, farmHarvest, farmMill,
   coopAdd, coopFeed, coopCollect, coopClean, farmVisit, farmCheer,
   marketGet, marketSell, marketBuy, marketCancel, marketClaim, npcMarketBuy, stallSet,
+  skillUpgrade, skillReset,
 } from '../actions.ts';
 import { quickLogin, refreshMe, claimLegacy, logout } from '../auth.ts';
-import { CLASSES, WEAPONS, RARITY_COLOR, ULTIMATES } from '../../../shared/data.ts';
+import { CLASSES, WEAPONS, RARITY_COLOR, ULTIMATES, CLASS_SKILL_TREES, PASSIVE_SKILLS } from '../../../shared/data.ts';
 import type { ClassId } from '../../../shared/data.ts';
 import { DASH_CD, POTION_CD, INVENTORY_SIZE } from '../../../shared/constants.ts';
 import { NPCS, QUESTS, SHOP_PRICES, TRIVIA_QUESTIONS, FOLK_ART_ENTRIES, VILLAGE_NOTICES } from '../../../shared/story.ts';
@@ -298,7 +299,8 @@ function Hud() {
   const cookOpen = useStore((s) => s.cookOpen);
   const farmOpen = useStore((s) => s.farmOpen);
   const marketOpen = useStore((s) => s.marketOpen);
-  const modalOpen = !!dialogue || shopOpen || triviaOpen || codexOpen || noticeOpen || cookOpen || farmOpen || marketOpen;
+  const skillOpen = useStore((s) => s.skillOpen);
+  const modalOpen = !!dialogue || shopOpen || triviaOpen || codexOpen || noticeOpen || cookOpen || farmOpen || marketOpen || skillOpen;
 
   return (
     <>
@@ -326,12 +328,16 @@ function Hud() {
       {me?.visitFarm && <VisitingBanner farm={me.visitFarm} />}
 
       <div class="top-buttons">
-        <button class="icon-btn" title="Túi đồ" onClick={() => store.set({ invOpen: !invOpen, bagOpen: false, farmOpen: false, marketOpen: false })}>🎒</button>
-        <button class="icon-btn" title="Giỏ Tre (Nghề Sống)" onClick={() => store.set({ bagOpen: !bagOpen, invOpen: false, farmOpen: false, marketOpen: false })}>🧺</button>
-        <button class="icon-btn" title="Nông Trại & Canh Nông" onClick={() => store.set({ farmOpen: !farmOpen, invOpen: false, bagOpen: false, marketOpen: false })}>🌾</button>
+        <button class="icon-btn skill-btn-wrap" title="Võ Học & Bí Kíp" onClick={() => store.set({ skillOpen: !skillOpen, invOpen: false, bagOpen: false, farmOpen: false, marketOpen: false })}>
+          ⚔️
+          {(me?.skills?.sp ?? 0) > 0 && <span class="badge-sp">{me?.skills?.sp}</span>}
+        </button>
+        <button class="icon-btn" title="Túi đồ" onClick={() => store.set({ invOpen: !invOpen, bagOpen: false, farmOpen: false, marketOpen: false, skillOpen: false })}>🎒</button>
+        <button class="icon-btn" title="Giỏ Tre (Nghề Sống)" onClick={() => store.set({ bagOpen: !bagOpen, invOpen: false, farmOpen: false, marketOpen: false, skillOpen: false })}>🧺</button>
+        <button class="icon-btn" title="Nông Trại & Canh Nông" onClick={() => store.set({ farmOpen: !farmOpen, invOpen: false, bagOpen: false, marketOpen: false, skillOpen: false })}>🌾</button>
         <button class="icon-btn" title="Chợ Phiên Làng Tre" onClick={() => {
           if (!marketOpen) { marketGet(); }
-          store.set({ marketOpen: !marketOpen, invOpen: false, bagOpen: false, farmOpen: false });
+          store.set({ marketOpen: !marketOpen, invOpen: false, bagOpen: false, farmOpen: false, skillOpen: false });
         }}>🏮</button>
         <button class="icon-btn" title="Sổ tay Tranh Đông Hồ" onClick={() => store.set({ codexOpen: !codexOpen })}>🖼️</button>
         <button class="icon-btn" title="Cáo Thị Làng" onClick={() => store.set({ noticeOpen: !noticeOpen })}>📜</button>
@@ -359,6 +365,7 @@ function Hud() {
       {cookOpen && <CookModal />}
       {farmOpen && <FarmModal />}
       {marketOpen && <MarketModal />}
+      {skillOpen && <SkillModal />}
       {invOpen && <Inventory />}
       {bagOpen && <BagPanel />}
       {dead && <DeathOverlay />}
@@ -447,28 +454,42 @@ function QuestTracker() {
 // ------------------------------------------------------------------ Nút Kỹ Năng & Bí Kíp
 
 function CdButton(props: {
-  label: string; sub?: string; readyAt: number; total: number; onPress: () => void;
+  icon?: string; label: string; sub?: string; levelTag?: string; readyAt: number; total: number; onPress: () => void;
   big?: boolean; disabled?: boolean; isUlt?: boolean; ready?: boolean; extraClass?: string;
 }) {
   const cooling = props.readyAt > performance.now();
   const now = useNow(cooling);
   const left = Math.max(0, props.readyAt - now);
   const pct = props.total > 0 ? (left / props.total) * 100 : 0;
+  const wasCooling = useRef(cooling);
+  const [justReady, setJustReady] = useState(false);
+
+  useEffect(() => {
+    if (wasCooling.current && !cooling) {
+      setJustReady(true);
+      const timer = setTimeout(() => setJustReady(false), 600);
+      return () => clearTimeout(timer);
+    }
+    wasCooling.current = cooling;
+  }, [cooling]);
 
   const classes = [
     'act',
     props.big ? 'big' : '',
     props.isUlt ? 'ult' : '',
     props.ready ? 'ult-ready' : '',
+    justReady ? 'just-ready' : '',
     props.extraClass ?? '',
     left > 0 || props.disabled ? 'cool' : '',
   ].filter(Boolean).join(' ');
 
   return (
     <button class={classes} onPointerDown={(e) => { e.preventDefault(); props.onPress(); }}>
-      {left > 0 && <span class="cd" style={{ background: `conic-gradient(rgba(0,0,0,.6) ${pct}%, transparent 0)` }} />}
+      {props.levelTag && <span class="act-level-tag">{props.levelTag}</span>}
+      {left > 0 && <span class="cd" style={{ background: `conic-gradient(rgba(0,0,0,.65) ${pct}%, transparent 0)` }} />}
+      {props.icon && <span class="act-icon">{props.icon}</span>}
       <span class="act-label">{props.label}</span>
-      {left > 0 ? <span class="act-sub">{(left / 1000).toFixed(1)}</span> : props.sub && <span class="act-sub">{props.sub}</span>}
+      {left > 0 ? <span class="act-sub">{(left / 1000).toFixed(1)}s</span> : props.sub && <span class="act-sub">{props.sub}</span>}
     </button>
   );
 }
@@ -480,13 +501,18 @@ function ActionButtons() {
   const potions = me?.inv.find((i) => i.key === 'potion')?.qty ?? 0;
   const khi = me?.khi ?? 0;
   const ultReady = khi >= 100;
+  const tree = CLASS_SKILL_TREES[cls];
+  const mainLv = me?.skills?.mainLv ?? 1;
+  const ultLv = me?.skills?.ultLv ?? 1;
 
   return (
     <div class="actions">
       {/* Nút Bí kíp trấn phái: nằm phía trên nút chiêu */}
       <CdButton
-        label={cls === 'warrior' ? 'Phù Đổng' : cls === 'archer' ? 'Nỏ Thần' : 'Thủy Long'}
-        sub={ultReady ? 'SẴN SÀNG' : `${khi}%`}
+        icon={tree.ult.icon}
+        label={tree.ult.name.split(' ')[0]}
+        levelTag={`T.${ultLv}`}
+        sub={ultReady ? 'BÍ KÍP!' : `${khi}%`}
         readyAt={0}
         total={100}
         onPress={castUltimate}
@@ -494,9 +520,33 @@ function ActionButtons() {
         ready={ultReady}
         disabled={!ultReady}
       />
-      <CdButton label={CLASSES[cls].skill.name} readyAt={ready.skill} total={me?.skillCd ?? 1} onPress={castSkill} big />
-      <CdButton label="Khinh công" readyAt={ready.dash} total={DASH_CD} onPress={dash} extraClass="dash" />
-      <CdButton label="Máu" sub={`x${potions}`} readyAt={ready.potion} total={POTION_CD} onPress={drinkPotion} disabled={!potions} extraClass="potion" />
+      <CdButton
+        icon={tree.main.icon}
+        label={tree.main.name}
+        levelTag={`C.${mainLv}`}
+        readyAt={ready.skill}
+        total={me?.skillCd ?? 1}
+        onPress={castSkill}
+        big
+      />
+      <CdButton
+        icon="💨"
+        label="Khinh công"
+        readyAt={ready.dash}
+        total={DASH_CD}
+        onPress={dash}
+        extraClass="dash"
+      />
+      <CdButton
+        icon="🍶"
+        label="Bình máu"
+        sub={`x${potions}`}
+        readyAt={ready.potion}
+        total={POTION_CD}
+        onPress={drinkPotion}
+        disabled={!potions}
+        extraClass="potion"
+      />
     </div>
   );
 }
@@ -1314,6 +1364,231 @@ function CodexModal() {
 
         <div class="dlg-actions">
           <button class="btn primary" onClick={() => store.set({ codexOpen: false })}>Đóng</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ Võ Học & Bí Kíp Modal
+
+function SkillModal() {
+  const me = useStore((s) => s.me);
+  const cls = useStore((s) => s.cls);
+  const skills = me?.skills;
+  const tree = CLASS_SKILL_TREES[cls];
+  const [tab, setTab] = useState<'main' | 'ult' | 'passives'>('main');
+
+  const sp = skills?.sp ?? 0;
+  const mainLv = skills?.mainLv ?? 1;
+  const ultLv = skills?.ultLv ?? 1;
+  const passives = skills?.passives ?? { atk: 0, def: 0, spd: 0 };
+
+  const mainDef = tree.main.levels[mainLv - 1] ?? tree.main.levels[0];
+  const nextMainDef = tree.main.levels[mainLv];
+
+  const ultDef = tree.ult.levels[ultLv - 1] ?? tree.ult.levels[0];
+  const nextUltDef = tree.ult.levels[ultLv];
+
+  const doReset = () => {
+    if (window.confirm('Bạn có chắc muốn tẩy toàn bộ điểm Võ Học? Tất cả SP đã dùng sẽ được hoàn trả lại đầy đủ.')) {
+      skillReset();
+    }
+  };
+
+  return (
+    <div class="modal-overlay" onClick={() => store.set({ skillOpen: false })}>
+      <div class="skill-card" onClick={(e) => e.stopPropagation()}>
+        <div class="dlg-header">
+          <div class="skill-header-title">
+            <b>⚔️ Võ Học & Bí Kíp</b>
+            <span class="muted tiny">· {CLASSES[cls].name}</span>
+          </div>
+          <button class="icon-btn small" onClick={() => store.set({ skillOpen: false })}>✕</button>
+        </div>
+
+        {/* Thanh trạng thái SP */}
+        <div class="skill-sp-banner">
+          <div class="sp-counter">
+            <span class="sp-label">Điểm Võ Học khả dụng:</span>
+            <b class="sp-val">{sp} SP</b>
+          </div>
+          <button class="btn tiny outline-warning" onClick={doReset} title="Hồi lại toàn bộ điểm đã cộng">
+            🔄 Tẩy Điểm
+          </button>
+        </div>
+
+        {/* Các nhánh võ học */}
+        <div class="skill-tabs">
+          <button class={`skill-tab ${tab === 'main' ? 'active' : ''}`} onClick={() => setTab('main')}>
+            {tree.main.icon} Chủ Động ({mainLv}/5)
+          </button>
+          <button class={`skill-tab ${tab === 'ult' ? 'active' : ''}`} onClick={() => setTab('ult')}>
+            {tree.ult.icon} Bí Kíp ({ultLv}/3)
+          </button>
+          <button class={`skill-tab ${tab === 'passives' ? 'active' : ''}`} onClick={() => setTab('passives')}>
+            ✨ Tâm Pháp ({passives.atk + passives.def + passives.spd}/15)
+          </button>
+        </div>
+
+        <div class="skill-content">
+          {tab === 'main' && (
+            <div class="skill-detail-card">
+              <div class="skill-title-row">
+                <div class="skill-icon-big">{tree.main.icon}</div>
+                <div class="skill-name-col">
+                  <div class="skill-name">{tree.main.name}</div>
+                  <div class="skill-pips">
+                    {[1, 2, 3, 4, 5].map((lvl) => (
+                      <span key={lvl} class={`pip ${lvl <= mainLv ? 'filled' : ''}`}>★</span>
+                    ))}
+                    <span class="pip-text">Cấp {mainLv}/5</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="skill-desc-box">
+                <div class="desc-heading">HIỆU QUẢ HIỆN TẠI (CẤP {mainLv})</div>
+                <p class="desc-text">{mainDef.desc}</p>
+                <div class="skill-stat-tags">
+                  <span class="stat-tag">Sát thương: <b>{Math.round(mainDef.mult * 100)}%</b></span>
+                  <span class="stat-tag">Hồi chiêu: <b>{(mainDef.cd / 1000).toFixed(1)}s</b></span>
+                  {mainDef.special && <span class="stat-tag special">Đột phá: {mainDef.special}</span>}
+                </div>
+              </div>
+
+              {nextMainDef ? (
+                <div class="skill-desc-box next">
+                  <div class="desc-heading next-label">CẤP KẾ TIẾP (CẤP {nextMainDef.lv})</div>
+                  <p class="desc-text">{nextMainDef.desc}</p>
+                  <div class="skill-stat-tags">
+                    <span class="stat-tag next">Sát thương: <b>{Math.round(nextMainDef.mult * 100)}%</b></span>
+                    <span class="stat-tag next">Hồi chiêu: <b>{(nextMainDef.cd / 1000).toFixed(1)}s</b></span>
+                    {nextMainDef.special && <span class="stat-tag special next">Đột phá: {nextMainDef.special}</span>}
+                  </div>
+                </div>
+              ) : (
+                <div class="skill-max-badge">✨ Kỹ năng đã đạt cảnh giới tối cao! ✨</div>
+              )}
+
+              <div class="skill-action-row">
+                <button
+                  class="btn primary upgrade-btn"
+                  disabled={sp <= 0 || mainLv >= 5}
+                  onClick={() => skillUpgrade('main')}
+                >
+                  {mainLv >= 5 ? 'Đã đạt Cấp tối đa' : '+ Nâng Cấp (Cần 1 SP)'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {tab === 'ult' && (
+            <div class="skill-detail-card">
+              <div class="skill-title-row">
+                <div class="skill-icon-big ult">{tree.ult.icon}</div>
+                <div class="skill-name-col">
+                  <div class="skill-name ult">{tree.ult.name}</div>
+                  <div class="skill-pips">
+                    {[1, 2, 3].map((lvl) => (
+                      <span key={lvl} class={`pip ult ${lvl <= ultLv ? 'filled' : ''}`}>★</span>
+                    ))}
+                    <span class="pip-text">Tầng {ultLv}/3</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="skill-desc-box">
+                <div class="desc-heading">HIỆU QUẢ HIỆN TẠI (TẦNG {ultLv})</div>
+                <p class="desc-text">{ultDef.desc}</p>
+                <div class="skill-stat-tags">
+                  <span class="stat-tag">Sát thương: <b>{Math.round(ultDef.mult * 100)}%</b></span>
+                  <span class="stat-tag">Phạm vi: <b>{ultDef.radius}px</b></span>
+                  {ultDef.duration && <span class="stat-tag">Thời gian: <b>{(ultDef.duration / 1000).toFixed(1)}s</b></span>}
+                  {ultDef.special && <span class="stat-tag special">Đột phá: {ultDef.special}</span>}
+                </div>
+              </div>
+
+              {nextUltDef ? (
+                <div class="skill-desc-box next">
+                  <div class="desc-heading next-label">TẦNG KẾ TIẾP (TẦNG {nextUltDef.lv})</div>
+                  <p class="desc-text">{nextUltDef.desc}</p>
+                  <div class="skill-stat-tags">
+                    <span class="stat-tag next">Sát thương: <b>{Math.round(nextUltDef.mult * 100)}%</b></span>
+                    <span class="stat-tag next">Phạm vi: <b>{nextUltDef.radius}px</b></span>
+                    {nextUltDef.duration && <span class="stat-tag next">Thời gian: <b>{(nextUltDef.duration / 1000).toFixed(1)}s</b></span>}
+                    {nextUltDef.special && <span class="stat-tag special next">Đột phá: {nextUltDef.special}</span>}
+                  </div>
+                </div>
+              ) : (
+                <div class="skill-max-badge">🌟 Bí Kíp đã đạt viên mãn Đệ Tam Tầng! 🌟</div>
+              )}
+
+              <div class="skill-action-row">
+                <button
+                  class="btn primary upgrade-btn"
+                  disabled={sp <= 0 || ultLv >= 3}
+                  onClick={() => skillUpgrade('ult')}
+                >
+                  {ultLv >= 3 ? 'Đã đạt Tầng tối đa' : '+ Đột Phá Bí Kíp (Cần 1 SP)'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {tab === 'passives' && (
+            <div class="passives-list">
+              {(['atk', 'def', 'spd'] as const).map((key) => {
+                const def = PASSIVE_SKILLS[key];
+                const lv = passives[key] ?? 0;
+                const icon = key === 'atk' ? '🗡️' : key === 'def' ? '🛡️' : '💨';
+                const curBonus = key === 'atk'
+                  ? `+${lv * 3} Sát thương Công`
+                  : key === 'def'
+                  ? `+${lv * 2} Giáp, +${lv * 20} Sinh lực`
+                  : `+${lv * 3}% Tốc độ chạy, -${(lv * 0.1).toFixed(1)}s Hồi khinh công`;
+
+                return (
+                  <div key={key} class="passive-card">
+                    <div class="passive-head">
+                      <span class="passive-icon">{icon}</span>
+                      <div class="passive-info">
+                        <div class="passive-title-row">
+                          <b>{def.name}</b>
+                          <span class="passive-level">Cấp {lv}/{def.maxLv}</span>
+                        </div>
+                        <div class="muted tiny">{def.desc}</div>
+                      </div>
+                    </div>
+
+                    <div class="passive-bonus-row">
+                      <div class="cur-bonus">Hiệu lực: <b class="highlight">{lv > 0 ? curBonus : 'Chưa kích hoạt'}</b></div>
+                      <div class="step-bonus tiny muted">{def.perLevelText}</div>
+                    </div>
+
+                    <div class="passive-bottom">
+                      <div class="passive-pips">
+                        {[1, 2, 3, 4, 5].map((idx) => (
+                          <span key={idx} class={`pip ${idx <= lv ? 'filled' : ''}`}>★</span>
+                        ))}
+                      </div>
+                      <button
+                        class="btn small primary"
+                        disabled={sp <= 0 || lv >= def.maxLv}
+                        onClick={() => skillUpgrade(key)}
+                      >
+                        {lv >= def.maxLv ? 'Tối đa' : '+ Nâng (1 SP)'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div class="dlg-actions">
+          <button class="btn primary" onClick={() => store.set({ skillOpen: false })}>Đóng</button>
         </div>
       </div>
     </div>

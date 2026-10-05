@@ -11,8 +11,9 @@ import { buildMap, moveWithCollision, isSafe, shotBlocked, lineOfSight, portalAt
 import type { GameMap, SpawnPoint, MapId } from '../../shared/map.ts';
 import {
   CLASSES, WEAPONS, MONSTERS, BOSS_SLAM, BOSS_SERPENT, statsFor, rollDamage, weaponsFor,
+  CLASS_SKILL_TREES, PASSIVE_SKILLS, normalizeSkills,
 } from '../../shared/data.ts';
-import type { ClassId, MonsterDef } from '../../shared/data.ts';
+import type { ClassId, MonsterDef, SkillData } from '../../shared/data.ts';
 import { applyInput } from '../../shared/protocol.ts';
 import type {
   ClientMsg, ServerMsg, InputMsg, GameEvent, InvItem, SelfState, PlayerSnap, MobSnap, FireSnap,
@@ -45,6 +46,7 @@ export interface Profile {
   title?: string;
   mapId?: MapId; // bản đồ đang đứng, vào lại game sẽ xuất hiện ở vùng an toàn của bản đồ này
   life?: LifeData; // Nghề Sống: cấp nghề, Giỏ Tre, buff ăn uống
+  skills?: SkillData; // Võ học & Kỹ năng
 }
 
 type Stats = ReturnType<typeof statsFor>;
@@ -237,6 +239,7 @@ export class World {
     prof.title = prof.title ?? '';
     prof.mapId = this.mapId;
     prof.life = normalizeLife(prof.life);
+    prof.skills = normalizeSkills(prof.skills, prof.level);
     const stats = this.computeStats(prof);
     const sp = this.map.playerSpawn;
     const p: Player = {
@@ -344,6 +347,8 @@ export class World {
       case 'ult': this.useUltimate(p); break;
       case 'potion': this.usePotion(p); break;
       case 'equip': this.equip(p, msg.uid); break;
+      case 'skill_upgrade': this.handleSkillUpgrade(p, msg.skill); break;
+      case 'skill_reset': this.handleSkillReset(p); break;
       case 'talk': this.handleTalk(p, msg.npcId); break;
       case 'buy': this.handleBuy(p, msg.item); break;
       case 'sell': this.handleSell(p, msg.uid); break;
@@ -391,9 +396,9 @@ export class World {
   private sys(text: string) { this.events.push({ e: 'sys', text }); }
   private tell(p: Player, text: string) { p.personal.push({ e: 'sys', text }); }
 
-  /** Chỉ số = cấp + vũ khí + mảnh trống + tranh Đông Hồ + buff ăn uống (còn hạn). */
+  /** Chỉ số = cấp + vũ khí + mảnh trống + tranh Đông Hồ + tâm pháp võ học + buff ăn uống (còn hạn). */
   private computeStats(prof: Profile): Stats {
-    const s = statsFor(prof.cls, prof.level, prof.weapon, prof.drumPieces?.length ?? 0, prof.questProg);
+    const s = statsFor(prof.cls, prof.level, prof.weapon, prof.drumPieces?.length ?? 0, prof.questProg, prof.skills?.passives);
     const b = prof.life?.buff;
     return applyFoodBuff(s, b && b.until > this.now() ? b.key : undefined);
   }
@@ -1265,10 +1270,15 @@ export class World {
     while (p.prof.level < MAX_LEVEL && p.prof.xp >= xpToNext(p.prof.level)) {
       p.prof.xp -= xpToNext(p.prof.level);
       p.prof.level++;
+      if (p.prof.skills) {
+        p.prof.skills.sp++;
+      } else {
+        p.prof.skills = normalizeSkills(undefined, p.prof.level);
+      }
       this.recalc(p);
       p.hp = p.stats.maxHp;
       this.events.push({ e: 'lvl', id: p.id, lv: p.prof.level });
-      this.tell(p, `Lên cấp ${p.prof.level}!`);
+      this.tell(p, `Lên cấp ${p.prof.level}! Nhận +1 Điểm Võ Học (SP).`);
     }
     if (p.prof.level >= MAX_LEVEL) p.prof.xp = 0;
     p.meDirty = true; p.saveDirty = true;
@@ -1276,8 +1286,10 @@ export class World {
 
   private useSkill(p: Player) {
     if (p.dead || this.t < p.skillReady || isSafe(this.map, p.x, p.y)) return;
-    const cls = CLASSES[p.prof.cls];
-    p.skillReady = this.t + cls.skill.cd;
+    const mainLv = p.prof.skills?.mainLv ?? 1;
+    const tree = CLASS_SKILL_TREES[p.prof.cls];
+    const mainDef = tree.main.levels[mainLv - 1] ?? tree.main.levels[0];
+    p.skillReady = this.t + mainDef.cd;
     p.meDirty = true;
     p.lastCombat = this.t;
 
@@ -1285,26 +1297,41 @@ export class World {
       const r = 78;
       this.events.push({ e: 'fx', k: 'whirl', x: p.x, y: p.y, r });
       for (const m of this.mobs.values()) {
-        if (!m.dead && dist(p.x, p.y, m.x, m.y) <= r + m.def.radius) this.hitMob(m, p.id, p.stats.atk, 1.8);
+        if (!m.dead && dist(p.x, p.y, m.x, m.y) <= r + m.def.radius) {
+          if (mainLv >= 5) {
+            m.stunUntil = Math.max(m.stunUntil, this.t + 500); // Đột phá Cấp 5
+          }
+          this.hitMob(m, p.id, p.stats.atk, mainDef.mult);
+        }
       }
     } else if (p.prof.cls === 'archer') {
       const tgt = this.nearestMob(p.x, p.y, 280);
       const base = tgt ? Math.atan2(tgt.y - p.y, tgt.x - p.x) : p.f;
       this.events.push({ e: 'fx', k: 'volley', x: p.x, y: p.y, r: 0 });
-      for (let i = -2; i <= 2; i++) {
+      const arrows = mainLv >= 5 ? 7 : 5;
+      const half = Math.floor(arrows / 2);
+      for (let i = -half; i <= half; i++) {
         const a = base + i * 0.17;
-        this.spawnProj(p, 'arrow', Math.cos(a), Math.sin(a), null, 0.9, 0, 300);
+        this.spawnProj(p, 'arrow', Math.cos(a), Math.sin(a), null, mainDef.mult, 0, 300);
       }
     } else {
       const tgt = this.nearestMob(p.x, p.y, 240, false);
       const tx = tgt ? tgt.x : p.x + Math.cos(p.f) * 120;
       const ty = tgt ? tgt.y : p.y + Math.sin(p.f) * 120;
-      const r = 72, delay = 600, atk = p.stats.atk, owner = p.id;
+      const r = 72 + (mainLv - 1) * 6;
+      const delay = mainLv === 5 ? 400 : mainLv >= 3 ? 500 : 600;
+      const atk = p.stats.atk, owner = p.id;
       this.events.push({ e: 'fx', k: 'meteor', x: tx, y: ty, r, ms: delay });
       this.later(delay, () => {
         this.events.push({ e: 'fx', k: 'boom', x: tx, y: ty, r });
         for (const m of this.mobs.values()) {
-          if (!m.dead && dist(tx, ty, m.x, m.y) <= r + m.def.radius) this.hitMob(m, owner, atk, 2.5);
+          if (!m.dead && dist(tx, ty, m.x, m.y) <= r + m.def.radius) {
+            if (mainLv >= 5) {
+              m.slowUntil = Math.max(m.slowUntil, this.t + 2000);
+              m.slowPct = 0.5;
+            }
+            this.hitMob(m, owner, atk, mainDef.mult);
+          }
         }
       });
     }
@@ -1312,45 +1339,52 @@ export class World {
 
   private useUltimate(p: Player) {
     if (p.dead || p.khi < 100 || isSafe(this.map, p.x, p.y)) return;
+    const ultLv = p.prof.skills?.ultLv ?? 1;
+    const tree = CLASS_SKILL_TREES[p.prof.cls];
+    const ultDef = tree.ult.levels[ultLv - 1] ?? tree.ult.levels[0];
     p.khi = 0;
     p.meDirty = true;
     p.lastCombat = this.t;
 
     if (p.prof.cls === 'warrior') {
-      // Phù Đổng Thiên Vương: nện đất 300% vùng 110px, choáng quái 1.2s
-      const r = 110, delay = 300, atk = p.stats.atk, owner = p.id;
+      // Phù Đổng Thiên Vương: nện đất vùng mở rộng theo cấp, choáng quái
+      const r = ultDef.radius ?? 110, delay = 300, atk = p.stats.atk, owner = p.id;
+      const stunMs = 1200 + (ultLv - 1) * 300;
       const cx = p.x, cy = p.y;
       this.events.push({ e: 'fx', k: 'ult_warrior', x: cx, y: cy, r, ms: delay });
       this.later(delay, () => {
         this.events.push({ e: 'fx', k: 'boom', x: cx, y: cy, r });
         for (const m of this.mobs.values()) {
           if (!m.dead && dist(cx, cy, m.x, m.y) <= r + m.def.radius) {
-            m.stunUntil = Math.max(m.stunUntil, this.t + 1200);
-            this.hitMob(m, owner, atk, 3.0);
+            m.stunUntil = Math.max(m.stunUntil, this.t + stunMs);
+            this.hitMob(m, owner, atk, ultDef.mult);
           }
         }
       });
     } else if (p.prof.cls === 'archer') {
-      // Nỏ Thần Kim Quy: mưa tên vàng 3 giây (mỗi 0.25s gây 60%), vùng 90px
+      // Nỏ Thần Kim Quy: mưa tên vàng vùng phủ
       const tgt = this.nearestMob(p.x, p.y, 300, false);
       const tx = tgt ? tgt.x : p.x + Math.cos(p.f) * 150;
       const ty = tgt ? tgt.y : p.y + Math.sin(p.f) * 150;
-      const r = 90, atk = p.stats.atk, owner = p.id;
-      this.events.push({ e: 'fx', k: 'ult_archer', x: tx, y: ty, r, ms: 3000 });
-      for (let i = 1; i <= 12; i++) {
+      const r = ultDef.radius ?? 90, atk = p.stats.atk, owner = p.id;
+      const dur = ultDef.duration ?? 3000;
+      const ticks = Math.round(dur / 250);
+      this.events.push({ e: 'fx', k: 'ult_archer', x: tx, y: ty, r, ms: dur });
+      for (let i = 1; i <= ticks; i++) {
         this.later(i * 250, () => {
           for (const m of this.mobs.values()) {
             if (!m.dead && dist(tx, ty, m.x, m.y) <= r + m.def.radius) {
-              this.hitMob(m, owner, atk, 0.6);
+              this.hitMob(m, owner, atk, ultDef.mult);
             }
           }
         });
       }
     } else {
-      // Thủy Long Quyển: 6 giọt nước xoay quanh người 4s, chạm gây 80% và làm chậm 40%
-      p.waterVortexUntil = this.t + 4000;
+      // Thủy Long Quyển: giọt nước xoay quanh người, chạm gây sát thương và làm chậm 40%
+      const dur = ultDef.duration ?? 4000;
+      p.waterVortexUntil = this.t + dur;
       p.vortexCooldowns.clear();
-      this.events.push({ e: 'fx', k: 'ult_mage', x: p.x, y: p.y, r: 70, ms: 4000 });
+      this.events.push({ e: 'fx', k: 'ult_mage', x: p.x, y: p.y, r: ultDef.radius ?? 70, ms: dur });
     }
   }
 
@@ -1377,6 +1411,70 @@ export class World {
     p.prof.weapon = w.key;
     this.recalc(p);
     this.tell(p, `Đã trang bị ${w.name}`);
+    p.saveDirty = true;
+  }
+
+  private handleSkillUpgrade(p: Player, skill: 'main' | 'ult' | 'atk' | 'def' | 'spd') {
+    if (p.dead) return;
+    const skills = p.prof.skills ?? (p.prof.skills = normalizeSkills(undefined, p.prof.level));
+    if (skills.sp <= 0) {
+      this.tell(p, 'Không đủ Điểm Võ Học (SP)!');
+      return;
+    }
+
+    if (skill === 'main') {
+      const cur = skills.mainLv ?? 1;
+      const max = CLASS_SKILL_TREES[p.prof.cls].main.levels.length;
+      if (cur >= max) {
+        this.tell(p, 'Kỹ năng chủ động đã đạt cấp tối đa!');
+        return;
+      }
+      skills.mainLv = cur + 1;
+      skills.sp--;
+      this.tell(p, `Nâng cấp kỹ năng ${CLASS_SKILL_TREES[p.prof.cls].main.name} lên Cấp ${skills.mainLv}!`);
+    } else if (skill === 'ult') {
+      const cur = skills.ultLv ?? 1;
+      const max = CLASS_SKILL_TREES[p.prof.cls].ult.levels.length;
+      if (cur >= max) {
+        this.tell(p, 'Tuyệt kỹ đã đạt cấp tối đa!');
+        return;
+      }
+      skills.ultLv = cur + 1;
+      skills.sp--;
+      this.tell(p, `Nâng cấp Tuyệt kỹ ${CLASS_SKILL_TREES[p.prof.cls].ult.name} lên Cấp ${skills.ultLv}!`);
+    } else if (skill === 'atk' || skill === 'def' || skill === 'spd') {
+      const cur = skills.passives[skill] ?? 0;
+      const max = PASSIVE_SKILLS[skill].maxLv;
+      if (cur >= max) {
+        this.tell(p, `Tâm pháp ${PASSIVE_SKILLS[skill].name} đã đạt cấp tối đa!`);
+        return;
+      }
+      skills.passives[skill] = cur + 1;
+      skills.sp--;
+      this.recalc(p);
+      this.tell(p, `Nâng cấp ${PASSIVE_SKILLS[skill].name} lên Cấp ${skills.passives[skill]}!`);
+    } else {
+      return;
+    }
+
+    this.events.push({ e: 'fx', k: 'ripple', x: p.x, y: p.y, r: 40, ms: 600 });
+    p.meDirty = true;
+    p.saveDirty = true;
+  }
+
+  private handleSkillReset(p: Player) {
+    if (p.dead) return;
+    const skills = p.prof.skills ?? (p.prof.skills = normalizeSkills(undefined, p.prof.level));
+    const totalEarned = Math.max(0, p.prof.level - 1);
+    skills.mainLv = 1;
+    skills.ultLv = 1;
+    skills.passives = { atk: 0, def: 0, spd: 0 };
+    skills.sp = totalEarned;
+
+    this.recalc(p);
+    this.events.push({ e: 'fx', k: 'whirl', x: p.x, y: p.y, r: 60 });
+    this.tell(p, `Tẩy điểm võ học thành công! Đã hồi lại ${totalEarned} SP.`);
+    p.meDirty = true;
     p.saveDirty = true;
   }
 
@@ -2277,7 +2375,9 @@ export class World {
         const canDash = t >= p.dashReady;
         const effSpeed = t < p.slowUntil ? p.stats.speed * 0.6 : p.stats.speed;
         if (applyInput(this.map, p, inp, effSpeed, canDash)) {
-          p.dashReady = t + DASH_CD;
+          const spdLv = p.prof.skills?.passives?.spd ?? 0;
+          const dashCd = Math.max(1200, DASH_CD - spdLv * 100);
+          p.dashReady = t + dashCd;
           p.iframeUntil = t + DASH_IFRAME_MS;
           p.meDirty = true;
         }
@@ -2340,6 +2440,8 @@ export class World {
       // 5) Thủy Long Quyển (nếu đang kích hoạt)
       if (p.waterVortexUntil > t) {
         const r = 70;
+        const ultLv = p.prof.skills?.ultLv ?? 1;
+        const ultMult = CLASS_SKILL_TREES.mage.ult.levels[ultLv - 1]?.mult ?? 0.8;
         for (const m of this.mobs.values()) {
           if (m.dead || dist(p.x, p.y, m.x, m.y) > r + m.def.radius) continue;
           const lastHit = p.vortexCooldowns.get(m.id) ?? 0;
@@ -2347,7 +2449,7 @@ export class World {
             p.vortexCooldowns.set(m.id, t);
             m.slowUntil = Math.max(m.slowUntil, t + 1500);
             m.slowPct = 0.4;
-            this.hitMob(m, p.id, p.stats.atk, 0.8);
+            this.hitMob(m, p.id, p.stats.atk, ultMult);
           }
         }
       }
@@ -2482,7 +2584,8 @@ export class World {
         dash: Math.max(0, p.dashReady - t),
         potion: Math.max(0, p.potionReady - t),
       },
-      skillCd: CLASSES[p.prof.cls].skill.cd,
+      skillCd: CLASS_SKILL_TREES[p.prof.cls].main.levels[(p.prof.skills?.mainLv ?? 1) - 1]?.cd ?? CLASSES[p.prof.cls].skill.cd,
+      skills: p.prof.skills,
       khi: Math.round(p.khi),
       drumPieces: p.prof.drumPieces ?? [],
       quests: p.prof.quests ?? { main1: 1 },
