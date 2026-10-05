@@ -18,7 +18,7 @@ import { applyInput } from '../../shared/protocol.ts';
 import type {
   ClientMsg, ServerMsg, InputMsg, GameEvent, InvItem, SelfState, PlayerSnap, MobSnap, FireSnap,
 } from '../../shared/protocol.ts';
-import { NPCS, QUESTS, SHOP_PRICES, TRIVIA_QUESTIONS } from '../../shared/story.ts';
+import { NPCS, QUESTS, SHOP_PRICES, TRIVIA_QUESTIONS, getScholarlyTier } from '../../shared/story.ts';
 import {
   LIFE_ITEMS, FOODS, RECIPES, FISH, FISH_XP, COOK_MS, COOK_RANGE, CAMPFIRE_MS, EAT_CD, COOK_SOCIAL_MULT,
   CUI_PRICE, SELL_DAILY_CAP, LIFE_SKILL_NAMES, applyFoodBuff, bagAdd, bagCanAdd, bagCount, bagTake,
@@ -28,7 +28,7 @@ import {
   CO_MO_SHOP, getTodayMarketEvent, getMarketSellPrice,
 } from '../../shared/life.ts';
 import type { FishSpot, LifeData, LifeSkill, CropKind, FarmData, FarmVisitSelf } from '../../shared/life.ts';
-import { TRIVIA_ANSWERS, TRIVIA_REWARD } from './trivia.ts';
+import { TRIVIA_ANSWERS, TRIVIA_REWARD, TriviaBoardManager } from './trivia.ts';
 import type { MarketManager } from './market.ts';
 
 export interface Profile {
@@ -185,9 +185,10 @@ export class World {
   outbox: Outgoing[] = [];
   onSave: (p: Profile) => void = () => {};
   onFindTargetFarm?: (name: string) => { player?: Player; farm: FarmData; farmLv: number; markDirty: () => void } | null;
-  onGetOnlineFarmers?: () => { name: string; farmLv: number; likes: number }[];
   market?: MarketManager;
+  triviaBoard?: TriviaBoardManager;
   onFindPlayerByToken?: (token: string) => Player | undefined;
+  onBroadcastRealm?: (from: string, text: string) => void;
 
   /**
    * Mỗi bản đồ một World. `ids` dùng chung giữa các World (Realm cấp) để id người chơi,
@@ -199,20 +200,29 @@ export class World {
     ids?: () => number;
     now?: () => number;
     market?: MarketManager;
+    triviaBoard?: TriviaBoardManager;
     onFindPlayerByToken?: (token: string) => Player | undefined;
     onFindTargetFarm?: (name: string) => { player?: Player; farm: FarmData; farmLv: number; markDirty: () => void } | null;
     onGetOnlineFarmers?: () => { name: string; farmLv: number; likes: number }[];
+    onBroadcastRealm?: (from: string, text: string) => void;
   } = {}) {
     this.rnd = opts.rnd ?? Math.random;
     this.ids = opts.ids ?? (() => this.nextId++);
     this.now = opts.now ?? Date.now;
     this.mapId = opts.mapId ?? 'lang_tre';
     this.market = opts.market;
+    this.triviaBoard = opts.triviaBoard;
     this.onFindPlayerByToken = opts.onFindPlayerByToken;
     this.onFindTargetFarm = opts.onFindTargetFarm;
     this.onGetOnlineFarmers = opts.onGetOnlineFarmers;
+    this.onBroadcastRealm = opts.onBroadcastRealm;
     this.map = buildMap(this.mapId);
     for (const sp of this.map.spawns) this.spawnMob(sp);
+  }
+
+  broadcastChat(from: string, text: string) {
+    this.outbox.push({ to: 'all', msg: { t: 'chat', from, text } });
+    this.events.push({ e: 'sys', text: `[${from}] ${text}` });
   }
 
   // ------------------------------------------------------------ người chơi
@@ -433,8 +443,24 @@ export class World {
       p.prof.gold += TRIVIA_REWARD.gold;
       p.khi = 100;
       p.prof.questProg = p.prof.questProg ?? {};
-      p.prof.questProg.trivia_correct = (p.prof.questProg.trivia_correct ?? 0) + 1;
-      this.sys(`${p.prof.name} vừa giải đúng một câu đố dân gian ở quán nước!`); // không lộ đáp án
+      const newScore = (p.prof.questProg.trivia_correct ?? 0) + 1;
+      p.prof.questProg.trivia_correct = newScore;
+      const tier = getScholarlyTier(newScore);
+      if (tier && p.prof.title !== tier.title) {
+        p.prof.title = tier.title;
+        const announce = `Chúc mừng sĩ tử ${p.prof.name} đã giải đúng ${newScore} câu đố và đỗ đạt danh vị [${tier.title}]!`;
+        if (this.onBroadcastRealm) {
+          this.onBroadcastRealm('📜 Bảng Vàng', announce);
+        } else {
+          this.broadcastChat('📜 Bảng Vàng', announce);
+        }
+      } else {
+        this.sys(`${p.prof.name} vừa giải đúng một câu đố dân gian ở quán nước!`); // không lộ đáp án
+      }
+      this.triviaBoard?.recordCorrect(p.prof.token, p.prof.name, p.prof.cls, newScore, tier?.title ?? 'Đồng Sinh');
+      for (const pl of this.players.values()) {
+        pl.meDirty = true;
+      }
     }
   }
 
@@ -2615,6 +2641,7 @@ export class World {
       visitFarm,
       onlineFarmers: this.onGetOnlineFarmers ? this.onGetOnlineFarmers() : undefined,
       marketEarnings: this.market?.getPendingEarnings(p.prof.token) ?? 0,
+      triviaBoard: this.triviaBoard?.getTopBoard() ?? [],
     };
   }
 

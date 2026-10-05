@@ -9,6 +9,7 @@ import { World } from './world.ts';
 import type { Outgoing, Profile, Player } from './world.ts';
 import { defaultFarm, normalizeLife, lifeLevel } from '../../shared/life.ts';
 import { MarketManager } from './market.ts';
+import { TriviaBoardManager } from './trivia.ts';
 
 export class Realm {
   readonly worlds = new Map<MapId, World>();
@@ -16,10 +17,12 @@ export class Realm {
   private outbox: Outgoing[] = [];
   private nextId = 1;
   readonly market: MarketManager;
+  readonly triviaBoard: TriviaBoardManager;
   onSave: (p: Profile) => void = () => {};
 
   constructor(opts: { rnd?: () => number; dataDir?: string } = {}) {
     this.market = new MarketManager(opts.dataDir);
+    this.triviaBoard = new TriviaBoardManager(opts.dataDir);
     const ids = () => this.nextId++;
     for (const mapId of MAP_IDS) {
       const w = new World({
@@ -27,6 +30,8 @@ export class Realm {
         mapId,
         ids,
         market: this.market,
+        triviaBoard: this.triviaBoard,
+        onBroadcastRealm: (from, text) => this.broadcastChat(from, text),
         onFindPlayerByToken: (token) => this.findPlayerByToken(token),
         onFindTargetFarm: (name) => {
           const target = this.findPlayerByName(name);
@@ -45,6 +50,12 @@ export class Realm {
       });
       w.onSave = (p) => this.onSave(p);
       this.worlds.set(mapId, w);
+    }
+  }
+
+  broadcastChat(from: string, text: string) {
+    for (const w of this.worlds.values()) {
+      w.broadcastChat(from, text);
     }
   }
 

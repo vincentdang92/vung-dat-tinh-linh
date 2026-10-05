@@ -6,6 +6,7 @@ import type { GameMap, MapId, MonsterKind } from './map.ts';
 import { moveWithCollision } from './map.ts';
 import { INPUT_DT, DASH_DIST, PLAYER_RADIUS } from './constants.ts';
 import type { LifeSelf, FarmVisitSelf, CropKind, MarketListing, MarketSale, MarketEvent } from './life.ts';
+import type { TriviaRankEntry } from './story.ts';
 
 // ---------- Client -> Server ----------
 export interface InputMsg { t: 'in'; seq: number; x: number; y: number; dash?: 1 }
@@ -109,6 +110,7 @@ export interface SelfState {
   onlineFarmers?: { name: string; farmLv: number; likes: number }[];
   marketEarnings?: number; // Tiền vàng bán hàng chợ phiên chờ nhận
   skills?: SkillData; // Hệ thống Võ Học & Điểm Kỹ Năng
+  triviaBoard?: TriviaRankEntry[]; // Bảng Vàng Trạng Nguyên (Top bảng vàng danh vọng)
 }
 
 /** Diễn biến câu cá gửi riêng cho người câu (để bấm "Giật!" đúng lúc). */

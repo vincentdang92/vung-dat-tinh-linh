@@ -35,6 +35,7 @@ export interface UiState {
   dialogue: NpcDialogueState | null;
   shopOpen: boolean;
   triviaOpen: boolean;
+  triviaTab: 'trivia' | 'board';
   codexOpen: boolean;
   skillOpen: boolean;
   noticeOpen: boolean;
@@ -110,7 +111,7 @@ export const store = createStore<UiState>({
   phase: 'lobby', error: '', myId: 0, name: '', cls: 'warrior',
   me: null, hp: 1, maxHp: 1, dead: false, respawnAt: 0, ping: 0, online: 0,
   chat: [], invOpen: false, chatOpen: false, dialogue: null, shopOpen: false,
-  triviaOpen: false, codexOpen: false, skillOpen: false, noticeOpen: false, nearNpc: null,
+  triviaOpen: false, triviaTab: 'trivia', codexOpen: false, skillOpen: false, noticeOpen: false, nearNpc: null,
   marketOpen: false, marketData: null, marketTab: 'browse', stallSellerToken: null,
   triviaResult: null, bagOpen: false, cookOpen: false, farmOpen: false, farmTab: 'my', shopNpc: 'nuoc',
   fishing: null, catchToast: null, cooking: null, buffUntil: 0, nearWater: false, cookPlace: null,

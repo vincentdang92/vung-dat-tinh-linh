@@ -14,7 +14,11 @@ import { quickLogin, refreshMe, claimLegacy, logout } from '../auth.ts';
 import { CLASSES, WEAPONS, RARITY_COLOR, ULTIMATES, CLASS_SKILL_TREES, PASSIVE_SKILLS } from '../../../shared/data.ts';
 import type { ClassId } from '../../../shared/data.ts';
 import { DASH_CD, POTION_CD, INVENTORY_SIZE } from '../../../shared/constants.ts';
-import { NPCS, QUESTS, SHOP_PRICES, TRIVIA_QUESTIONS, FOLK_ART_ENTRIES, VILLAGE_NOTICES } from '../../../shared/story.ts';
+import {
+  NPCS, QUESTS, SHOP_PRICES, TRIVIA_QUESTIONS, FOLK_ART_ENTRIES, VILLAGE_NOTICES,
+  SCHOLARLY_TIERS, getScholarlyTier,
+} from '../../../shared/story.ts';
+import type { TriviaRankEntry } from '../../../shared/story.ts';
 import { emailError, passwordError, PASSWORD_MIN, PASSWORD_MAX, SESSION_DAYS } from '../../../shared/auth.ts';
 import type { CharacterSummary } from '../../../shared/auth.ts';
 import { nameError, normalizeName, randomName, NAME_MIN, NAME_MAX } from '../../../shared/names.ts';
@@ -964,8 +968,11 @@ function DialogueBox({ dialogue }: { dialogue: NonNullable<ReturnType<typeof sto
               <button class="btn primary" onClick={() => { store.set({ dialogue: null, shopOpen: true, shopNpc: 'nuoc' }); }}>
                 Mở Cửa Hàng
               </button>
-              <button class="btn primary" style={{ background: '#0284c7', color: '#fff' }} onClick={() => { store.set({ dialogue: null, triviaOpen: true, triviaResult: null }); }}>
+              <button class="btn primary" style={{ background: '#0284c7', color: '#fff' }} onClick={() => { store.set({ dialogue: null, triviaOpen: true, triviaTab: 'trivia', triviaResult: null }); }}>
                 Đố Vui 🍵
+              </button>
+              <button class="btn primary" style={{ background: '#d97706', color: '#fff' }} onClick={() => { store.set({ dialogue: null, triviaOpen: true, triviaTab: 'board', triviaResult: null }); }}>
+                Bảng Vàng 📜
               </button>
             </>
           )}
@@ -1216,11 +1223,16 @@ function ChatLog() {
 function TriviaModal() {
   const [qIndex, setQIndex] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
+  const activeTab = useStore((s) => s.triviaTab);
   const result = useStore((s) => s.triviaResult);
-  const doneList = useStore((s) => s.me?.life?.triviaDone);
+  const me = useStore((s) => s.me);
+  const doneList = me?.life?.triviaDone;
+
+  const correctCount = me?.questProg?.trivia_correct ?? 0;
+  const currentTier = getScholarlyTier(correctCount);
+  const nextTier = [...SCHOLARLY_TIERS].reverse().find((t) => t.minScore > correctCount);
 
   const q = TRIVIA_QUESTIONS[qIndex] ?? TRIVIA_QUESTIONS[0];
-  // Đáp án chỉ có sau khi server chấm (client không biết trước đáp án)
   const res = result && result.qId === q.id ? result : null;
   const doneToday = !!doneList?.includes(q.id);
   const doneCount = doneList?.length ?? 0;
@@ -1246,52 +1258,184 @@ function TriviaModal() {
     return '';
   };
 
+  const board = me?.triviaBoard ?? [];
+
   return (
     <div class="modal-overlay" onClick={() => store.set({ triviaOpen: false })}>
-      <div class="trivia-card" onClick={(e) => e.stopPropagation()}>
+      <div class="trivia-card modal-wide" onClick={(e) => e.stopPropagation()}>
         <div class="dlg-header">
-          <b>🍵 Đố Vui Dân Gian (Bà Hàng Nước)</b>
+          <div class="trivia-tab-header">
+            <button
+              class={`trivia-tab-btn ${activeTab === 'trivia' ? 'active' : ''}`}
+              onClick={() => store.set({ triviaTab: 'trivia' })}
+            >
+              🍵 Đố Vui Dân Gian ({qIndex + 1}/{TRIVIA_QUESTIONS.length})
+            </button>
+            <button
+              class={`trivia-tab-btn ${activeTab === 'board' ? 'active' : ''}`}
+              onClick={() => store.set({ triviaTab: 'board' })}
+            >
+              📜 Bảng Vàng Trạng Nguyên
+            </button>
+          </div>
           <button class="icon-btn small" onClick={() => store.set({ triviaOpen: false })}>✕</button>
         </div>
 
-        <div class="trivia-nav">
-          <button class="btn ghost small" onClick={() => handleNextQ(-1)}>◀ Câu trước</button>
-          <span class="muted tiny">Câu {qIndex + 1}/{TRIVIA_QUESTIONS.length} · hôm nay đã đáp {doneCount}</span>
-          <button class="btn ghost small" onClick={() => handleNextQ(1)}>Câu sau ▶</button>
-        </div>
-
-        <div class="trivia-body">
-          <p class="trivia-q">"{q.q}"</p>
-          {doneToday && !res && <p class="muted tiny">Hôm nay bạn đã trả lời câu này rồi: trả lời lại để ôn bài, không có thưởng. Mai quay lại nhé!</p>}
-          <div class="trivia-options">
-            {q.options.map((opt, idx) => (
-              <button
-                key={idx}
-                class={`trivia-btn ${optClass(idx)}`}
-                disabled={picked !== null}
-                onClick={() => handleChoose(idx)}
-              >
-                <span class="opt-idx">{String.fromCharCode(65 + idx)}.</span> {opt}
-              </button>
-            ))}
-          </div>
-
-          {picked !== null && !res && <p class="muted tiny">Bà Hàng Nước đang nghĩ…</p>}
-          {res && (
-            <div class={`trivia-feedback ${res.ok ? 'good' : 'warn'}`}>
-              <b>
-                {res.ok
-                  ? res.repeat ? '✔ Chính xác! (câu này hôm nay đã nhận thưởng)' : '🎉 Tuyệt vời! (+50 XP, +25 Vàng, Hồi đầy Khí)'
-                  : `💡 Tiếc quá! Đáp án đúng là: "${q.options[res.ans]}"`}
-              </b>
-              <p>{res.exp}</p>
+        {activeTab === 'trivia' ? (
+          <>
+            <div class="trivia-scholar-strip">
+              <span>Sĩ tử: <b>{me?.name ?? 'Bạn'}</b></span>
+              <span class="scholar-badge">{currentTier ? currentTier.title : 'Chưa nhập học'}</span>
+              <span class="muted tiny">Đã giải đúng: <b>{correctCount}/30</b> câu đố</span>
             </div>
-          )}
-        </div>
 
-        <div class="dlg-actions">
-          <button class="btn ghost" onClick={() => store.set({ triviaOpen: false })}>Đóng</button>
-        </div>
+            <div class="trivia-nav">
+              <button class="btn ghost small" onClick={() => handleNextQ(-1)}>◀ Câu trước</button>
+              <span class="muted tiny">Câu số {qIndex + 1}/{TRIVIA_QUESTIONS.length} · Hôm nay đã làm {doneCount} câu</span>
+              <button class="btn ghost small" onClick={() => handleNextQ(1)}>Câu sau ▶</button>
+            </div>
+
+            <div class="trivia-body">
+              <p class="trivia-q">"{q.q}"</p>
+              {doneToday && !res && (
+                <p class="muted tiny" style={{ color: '#d97706', margin: '4px 0' }}>
+                  ⏳ Hôm nay bạn đã trả lời câu này rồi (trả lời lại để ôn bài, không nhận thêm thưởng). Mai quay lại nhé!
+                </p>
+              )}
+              <div class="trivia-options">
+                {q.options.map((opt, idx) => (
+                  <button
+                    key={idx}
+                    class={`trivia-btn ${optClass(idx)}`}
+                    disabled={picked !== null}
+                    onClick={() => handleChoose(idx)}
+                  >
+                    <span class="opt-idx">{String.fromCharCode(65 + idx)}.</span> {opt}
+                  </button>
+                ))}
+              </div>
+
+              {picked !== null && !res && <p class="muted tiny">Bà Hàng Nước đang ngẫm nghĩ…</p>}
+              {res && (
+                <div class={`trivia-feedback ${res.ok ? 'good' : 'warn'}`}>
+                  <b>
+                    {res.ok
+                      ? res.repeat
+                        ? '✔ Chính xác! (câu này hôm nay đã giải, ôn tập rất tốt!)'
+                        : '🎉 Tuyệt vời! (+50 XP, +25 Vàng, Hồi đầy Khí)'
+                      : `💡 Tiếc quá! Đáp án đúng là: "${q.options[res.ans]}"`}
+                  </b>
+                  <p>{res.exp}</p>
+                </div>
+              )}
+            </div>
+
+            <div class="dlg-actions" style={{ justifyContent: 'space-between' }}>
+              <button
+                class="btn small primary"
+                style={{ background: '#d97706', color: '#fff' }}
+                onClick={() => store.set({ triviaTab: 'board' })}
+              >
+                📜 Xem Bảng Vàng Trạng Nguyên
+              </button>
+              <button class="btn ghost" onClick={() => store.set({ triviaOpen: false })}>Đóng</button>
+            </div>
+          </>
+        ) : (
+          <div class="bang-vang-container">
+            <div class="bang-vang-hero">
+              <div class="bang-vang-title">📜 BẢNG VÀNG KHOA CỬ ĐẠI VIỆT</div>
+              <p class="bang-vang-sub">
+                "Hiền tài là nguyên khí quốc gia" — Nơi tôn vinh các bậc sĩ tử đỗ đạt khoa thi đố vui dân gian
+              </p>
+            </div>
+
+            <div class="bang-vang-my-card">
+              <div class="my-card-header">
+                <div class="my-card-left">
+                  <span class="my-card-label">SĨ TỬ ỨNG THÍ:</span>
+                  <span class="my-card-name">{me?.name ?? 'Bạn'}</span>
+                  <span class="my-card-class">({CLASSES[me?.cls ?? 'warrior']?.name})</span>
+                </div>
+                <div class="my-card-right">
+                  <span class="scholar-badge large">{currentTier ? currentTier.title : 'Chưa có danh vị'}</span>
+                </div>
+              </div>
+              <div class="my-card-progress">
+                <div class="progress-info">
+                  <span>Thành tích: <b>{correctCount} / 30</b> câu đố</span>
+                  <span class="muted tiny">
+                    {nextTier
+                      ? `Khoa thi tiếp theo: [${nextTier.title}] (cần ${nextTier.minScore} câu, còn thiếu ${nextTier.minScore - correctCount} câu)`
+                      : '👑 Đỉnh cao Trạng Nguyên! Thiên hạ đệ nhất danh sĩ'}
+                  </span>
+                </div>
+                <div class="exam-progress-bar">
+                  <div
+                    class="exam-progress-fill"
+                    style={{ width: `${Math.min(100, Math.round((correctCount / 30) * 100))}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="bang-vang-table-wrap">
+              <div class="bang-vang-table-title">🏆 TOP SĨ TỬ ĐỖ ĐẠT KHOA THI</div>
+              {board.length === 0 ? (
+                <div class="bang-vang-empty">
+                  🍵 Chưa có sĩ tử nào ghi danh. Hãy là người đầu tiên giải đúng câu đố tại Quán Nước Bà Hàng Nước để vinh quy bái tổ!
+                </div>
+              ) : (
+                <div class="bang-vang-list">
+                  <div class="bang-vang-row header">
+                    <span class="col-rank">Thứ Hạng</span>
+                    <span class="col-name">Sĩ Tử</span>
+                    <span class="col-cls">Phái</span>
+                    <span class="col-title">Danh Vị Khoa Bảng</span>
+                    <span class="col-score">Đúng</span>
+                  </div>
+                  {board.map((entry, idx) => {
+                    const rankMedal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+                    const isMe = entry.name.toLowerCase() === (me?.name ?? '').toLowerCase();
+                    return (
+                      <div key={idx} class={`bang-vang-row ${idx < 3 ? `top-${idx + 1}` : ''} ${isMe ? 'is-me' : ''}`}>
+                        <span class="col-rank">
+                          <span class="rank-badge">{rankMedal}</span>
+                        </span>
+                        <span class="col-name">
+                          <b>{entry.name}</b> {isMe && <span class="tag-me">(Tôi)</span>}
+                        </span>
+                        <span class="col-cls">{CLASSES[entry.cls as ClassId]?.name ?? entry.cls}</span>
+                        <span class="col-title">
+                          <span class="scholar-badge small">{entry.title}</span>
+                        </span>
+                        <span class="col-score">
+                          <b>{entry.score}</b>/30 💮
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div class="scholarly-tier-guide">
+              <div class="tier-guide-title">📖 CÁC BẬC KHOA CỬ & DANH VỊ TRỌNG THƯỞNG:</div>
+              <div class="tier-guide-steps">
+                {[...SCHOLARLY_TIERS].reverse().map((tier, idx) => (
+                  <div key={idx} class={`tier-step ${correctCount >= tier.minScore ? 'achieved' : ''}`}>
+                    <span class="tier-name">{tier.title}</span>
+                    <span class="tier-req">≥ {tier.minScore} câu</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div class="dlg-actions">
+              <button class="btn ghost" onClick={() => store.set({ triviaOpen: false })}>Đóng Bảng Vàng</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

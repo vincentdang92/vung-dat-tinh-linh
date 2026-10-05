@@ -331,6 +331,38 @@ export interface TriviaQuestion {
   options: [string, string, string];
 }
 
+export interface TriviaRankEntry {
+  name: string;
+  cls: string;
+  score: number;
+  title: string;
+  updatedAt?: number;
+}
+
+export interface ScholarlyTier {
+  minScore: number;
+  title: string;
+  badge: string;
+  desc: string;
+}
+
+export const SCHOLARLY_TIERS: ScholarlyTier[] = [
+  { minScore: 30, title: 'Trạng Nguyên', badge: '👑', desc: 'Thủ khoa tuyệt đỉnh, bảng vàng ghi danh thiên cổ' },
+  { minScore: 25, title: 'Bảng Nhãn', badge: '🥈', desc: 'Á khoa thi Đình, tài cao học rộng' },
+  { minScore: 20, title: 'Thám Hoa', badge: '🥉', desc: 'Tam khôi thi Đình, văn hoa xuất chúng' },
+  { minScore: 15, title: 'Tiến Sĩ', badge: '🥇', desc: 'Đỗ kỳ thi Hội, danh đề bia đá' },
+  { minScore: 10, title: 'Cử Nhân', badge: '🏅', desc: 'Đỗ kỳ thi Hương, vang danh một vùng' },
+  { minScore: 5,  title: 'Tú Tài', badge: '🎓', desc: 'Thông tường kinh sử, ứng thí đỗ đạt' },
+  { minScore: 1,  title: 'Đồng Sinh', badge: '📜', desc: 'Mới bước vào cửa Khổng sân Trình' },
+];
+
+export function getScholarlyTier(score: number): ScholarlyTier | null {
+  for (const tier of SCHOLARLY_TIERS) {
+    if (score >= tier.minScore) return tier;
+  }
+  return null;
+}
+
 export const TRIVIA_QUESTIONS: TriviaQuestion[] = [
   {
     id: 0,
@@ -361,6 +393,126 @@ export const TRIVIA_QUESTIONS: TriviaQuestion[] = [
     id: 5,
     q: 'Theo truyền thuyết, Thánh Gióng nhổ tre đằng ngà đánh đuổi giặc Ân vào đời vua Hùng thứ mấy?',
     options: ['Hùng Vương thứ 1', 'Hùng Vương thứ 18', 'Hùng Vương thứ 6'],
+  },
+  {
+    id: 6,
+    q: 'Câu đố dân gian: "Đầu hai sừng, đuôi một chùm, sớm chiều lội ruộng giúp dân cày bừa" là con vật nào?',
+    options: ['Con trâu', 'Con ngựa', 'Con dê'],
+  },
+  {
+    id: 7,
+    q: 'Câu đố thơ dân gian: "Da cóc mà bọc bột lọc, bột lọc mà bọc hòn than" miêu tả quả gì ở vườn quê?',
+    options: ['Quả sầu riêng', 'Quả mít', 'Quả bòn bon'],
+  },
+  {
+    id: 8,
+    q: 'Hoàng tử nào trong truyền thuyết Hùng Vương đã sáng tạo nên Bánh Chưng vuông và Bánh Giầy tròn?',
+    options: ['Lang Liêu', 'Mai An Tiêm', 'Chử Đồng Tử'],
+  },
+  {
+    id: 9,
+    q: 'Ai là người bị đày ra đảo hoang, nhờ tìm thấy hạt chim trời đánh rơi mà gieo trồng nên giống dưa hấu đỏ?',
+    options: ['Thạch Sanh', 'Mai An Tiêm', 'Trương Ba'],
+  },
+  {
+    id: 10,
+    q: 'Vật dụng truyền thống che mưa che nắng gắn liền với tà áo dài của người phụ nữ Việt Nam là gì?',
+    options: ['Chiếc nón lá', 'Chiếc ô lụa', 'Chiếc khăn rằn'],
+  },
+  {
+    id: 11,
+    q: 'Sau khi đánh thắng quân Minh, vua Lê Thái Tổ đã trao trả gươm báu Thuận Thiên cho Rùa Vàng ở đâu?',
+    options: ['Hồ Tây', 'Hồ Hoàn Kiếm (Hồ Gươm)', 'Hồ Ba Bể'],
+  },
+  {
+    id: 12,
+    q: 'Kinh nghiệm dân gian đúc kết: "Chuồn chuồn bay thấp thì mưa, bay cao thì nắng, bay vừa thì..." gì?',
+    options: ['Thì gió', 'Thì râm', 'Thì lạnh'],
+  },
+  {
+    id: 13,
+    q: 'Loại cầu bắc qua kênh rạch chông chênh chỉ có một thân tre và tay vịn ở Nam Bộ gọi là gì?',
+    options: ['Cầu khỉ', 'Cầu đá', 'Cầu ngói'],
+  },
+  {
+    id: 14,
+    q: 'Theo phong tục truyền thống, người xưa trồng cây nêu trước sân nhà vào dịp Tết Nguyên Đán để làm gì?',
+    options: ['Đón chim én về làm tổ', 'Xua đuổi ma quỷ và trừ tà', 'Treo lồng đèn trang trí'],
+  },
+  {
+    id: 15,
+    q: 'Năm 938, vị anh hùng nào đã đóng cọc gỗ bịt sắt trên sông Bạch Đằng đánh tan thủy quân Nam Hán?',
+    options: ['Trần Hưng Đạo', 'Ngô Quyền', 'Lý Thường Kiệt'],
+  },
+  {
+    id: 16,
+    q: 'Câu đố dân gian: "Con gì tám cẳng hai càng, chẳng đi đàng thẳng mà bò ngang ngang" là con gì?',
+    options: ['Con tôm tích', 'Con cua đồng', 'Con ba khía'],
+  },
+  {
+    id: 17,
+    q: 'Câu đố: "Cây gì thân mọng nước, mẹ chỉ sinh một lứa, buồng trĩu quả từng nải cong cong"?',
+    options: ['Cây chuối', 'Cây dừa', 'Cây cau'],
+  },
+  {
+    id: 18,
+    q: 'Câu ca dao: "Dù ai đi ngược về xuôi / Nhớ ngày Giỗ Tổ mùng mười..." tháng mấy âm lịch?',
+    options: ['Tháng Giêng (tháng 1)', 'Tháng Ba (tháng 3)', 'Tháng Chạp (tháng 12)'],
+  },
+  {
+    id: 19,
+    q: 'Hình ảnh biểu tượng nổi bật nằm ở chính giữa mặt Trống Đồng Đông Sơn là hình ảnh gì?',
+    options: ['Ngôi sao mặt trời nhiều cánh', 'Đôi chim phượng hoàng', 'Hình hoa sen nở'],
+  },
+  {
+    id: 20,
+    q: 'Làng gốm sứ cổ truyền trứ danh hơn 700 năm tuổi nằm ven bờ sông Hồng tại Hà Nội tên là gì?',
+    options: ['Bát Tràng', 'Chu Đậu', 'Phù Lãng'],
+  },
+  {
+    id: 21,
+    q: 'Câu đố: "Bốn chân đạp đất, hai hàm nhai rơm, nhả ra hạt ngọc nuôi sống con người" là vật dụng gì xưa?',
+    options: ['Cái cày chìa vôi', 'Cái cối xay lúa bằng tre', 'Cái quạt thóc'],
+  },
+  {
+    id: 22,
+    q: 'Loài cây nào từ ngàn xưa tượng trưng cho khí phách dẻo dai, kiên cường, bất khuất của dân tộc Việt Nam?',
+    options: ['Cây tre', 'Cây đa', 'Cây cau'],
+  },
+  {
+    id: 23,
+    q: 'Cột cờ Lũng Cú — điểm cực Bắc thiêng liêng của Tổ quốc với lá cờ đỏ sao vàng 54m² thuộc tỉnh nào?',
+    options: ['Lào Cai', 'Hà Giang', 'Cao Bằng'],
+  },
+  {
+    id: 24,
+    q: 'Món ăn quốc hồn quốc túy của Việt Nam với nước dùng hầm xương ngọt thanh, thảo quả, hồi, quế ăn cùng bánh phở trắng mềm là gì?',
+    options: ['Bún chả', 'Phở', 'Hủ tiếu'],
+  },
+  {
+    id: 25,
+    q: 'Năm 40 sau Công nguyên, Hai Bà Trưng đã cưỡi loài vật nào khi phất cờ khởi nghĩa đánh đuổi giặc Đông Hán?',
+    options: ['Ngựa chiến', 'Voi chiến hai ngà', 'Hổ vằn'],
+  },
+  {
+    id: 26,
+    q: 'Câu tục ngữ nào ca ngợi tình làng nghĩa xóm, sẵn sàng chia ngọt sẻ bùi lúc tối lửa tắt đèn?',
+    options: ['Bán anh em xa mua láng giềng gần', 'Đèn nhà ai nhà nấy rạng', 'Ăn cây nào rào cây ấy'],
+  },
+  {
+    id: 27,
+    q: 'Trang phục truyền thống kín đáo, hai tà thướt tha tôn vinh nét đẹp dịu dàng của người phụ nữ Việt là gì?',
+    options: ['Áo tứ thân', 'Áo bà ba', 'Áo dài'],
+  },
+  {
+    id: 28,
+    q: 'Lễ hội đầu xuân có nghi thức vua quan đích thân xuống đồng cày ruộng tịch điền để khuyến khích nhà nông tên là gì?',
+    options: ['Lễ Tịch Điền', 'Lễ Khao Lề', 'Lễ Cầu Ngư'],
+  },
+  {
+    id: 29,
+    q: 'Trong sự tích Sơn Tinh Thủy Tinh, sinh vật nào sau đây là sính lễ thách cưới của Vua Hùng?',
+    options: ['Gà chín cựa', 'Cá vàng chín vây', 'Chim công chín sắc'],
   },
 ];
 

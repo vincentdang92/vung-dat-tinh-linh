@@ -4,10 +4,10 @@ import assert from 'node:assert/strict';
 import { World } from '../src/world.ts';
 import { collides, MAP_W, MAP_H, tileAt, blocksMove } from '../../shared/map.ts';
 import { TILE, PLAYER_RADIUS } from '../../shared/constants.ts';
-import { NPCS, SHOP_PRICES, TRIVIA_QUESTIONS } from '../../shared/story.ts';
+import { NPCS, SHOP_PRICES, TRIVIA_QUESTIONS, SCHOLARLY_TIERS, getScholarlyTier } from '../../shared/story.ts';
 import type { ServerMsg } from '../../shared/protocol.ts';
 import { LIFE_ITEMS, SELL_DAILY_CAP, BAY_PRICE, fishSpotAt, normalizeLife, trapSpotOk } from '../../shared/life.ts';
-import { TRIVIA_ANSWERS } from '../src/trivia.ts';
+import { TRIVIA_ANSWERS, TriviaBoardManager } from '../src/trivia.ts';
 import { MarketManager } from '../src/market.ts';
 
 function seeded(seed = 42) {
@@ -592,6 +592,70 @@ test('Đố Vui: mỗi câu chỉ được thưởng 1 lần mỗi ngày, sang n
   now += 24 * 3600_000; // sang ngày hôm sau
   w.handle(id, { t: 'trivia', qId: 1, choice: ans });
   assert.equal(p.prof.gold, gold1 + 25, 'ngày mới được đố lại');
+});
+
+test('Bảng Vàng Trạng Nguyên: ngân hàng 30 câu hỏi và hệ thống phong danh vị khoa cử', () => {
+  // 1. Kiểm tra ngân hàng 30 câu hỏi và đáp án khớp 1-1
+  assert.equal(TRIVIA_QUESTIONS.length, 30, 'Phải có đúng 30 câu đố dân gian');
+  assert.equal(Object.keys(TRIVIA_ANSWERS).length, 30, 'Phải có đúng 30 đáp án');
+  for (let i = 0; i < 30; i++) {
+    const q = TRIVIA_QUESTIONS[i];
+    const a = TRIVIA_ANSWERS[i];
+    assert.equal(q.id, i, `Câu hỏi ${i} phải có id tương ứng`);
+    assert.ok(a, `Đáp án ${i} phải tồn tại`);
+    assert.ok(a.ans >= 0 && a.ans < q.options.length, `Đáp án ${i} phải nằm trong khoảng lựa chọn [0..${q.options.length - 1}]`);
+    assert.ok(a.exp.length > 5, `Giải thích câu ${i} phải phong phú`);
+  }
+
+  // 2. Kiểm tra các bậc danh vị khoa cử
+  assert.equal(getScholarlyTier(0), null);
+  assert.equal(getScholarlyTier(1)?.title, 'Đồng Sinh');
+  assert.equal(getScholarlyTier(5)?.title, 'Tú Tài');
+  assert.equal(getScholarlyTier(10)?.title, 'Cử Nhân');
+  assert.equal(getScholarlyTier(15)?.title, 'Tiến Sĩ');
+  assert.equal(getScholarlyTier(20)?.title, 'Thám Hoa');
+  assert.equal(getScholarlyTier(25)?.title, 'Bảng Nhãn');
+  assert.equal(getScholarlyTier(30)?.title, 'Trạng Nguyên');
+
+  // 3. Mô phỏng trả lời câu đố và thăng cấp danh hiệu trên Bảng Vàng
+  const boardManager = new TriviaBoardManager();
+  const w = new World({ rnd: () => 0.5, mapId: 'lang_tre', triviaBoard: boardManager });
+  const id1 = w.addPlayer(World.newProfile('token_si_tu_1', 'ChuVanAn', 'warrior'));
+  const p1 = w.debugPlayer(id1)!;
+  tp(w, id1, NPCS.nuoc.x, NPCS.nuoc.y);
+
+  // Trả lời đúng câu 0 -> Đỗ Đồng Sinh
+  w.handle(id1, { t: 'trivia', qId: 0, choice: TRIVIA_ANSWERS[0].ans });
+  assert.equal(p1.prof.questProg.trivia_correct, 1);
+  assert.equal(p1.prof.title, 'Đồng Sinh', 'Tự động phong danh vị Đồng Sinh');
+
+  // Thêm người chơi 2 trả lời nhiều câu hơn
+  const id2 = w.addPlayer(World.newProfile('token_si_tu_2', 'NguyenBinhKhiem', 'mage'));
+  const p2 = w.debugPlayer(id2)!;
+  tp(w, id2, NPCS.nuoc.x, NPCS.nuoc.y);
+
+  for (let qId = 0; qId < 5; qId++) {
+    w.handle(id2, { t: 'trivia', qId, choice: TRIVIA_ANSWERS[qId].ans });
+  }
+  assert.equal(p2.prof.questProg.trivia_correct, 5);
+  assert.equal(p2.prof.title, 'Tú Tài', '5 câu đúng đỗ Tú Tài');
+
+  // 4. Kiểm tra dữ liệu Bảng Vàng xếp hạng
+  const top = boardManager.getTopBoard();
+  assert.equal(top.length, 2);
+  assert.equal(top[0].name, 'NguyenBinhKhiem');
+  assert.equal(top[0].score, 5);
+  assert.equal(top[0].title, 'Tú Tài');
+  assert.equal(top[1].name, 'ChuVanAn');
+  assert.equal(top[1].score, 1);
+  assert.equal(top[1].title, 'Đồng Sinh');
+
+  // Kiểm tra selfState gửi Bảng Vàng cho client
+  const snapOut = w.buildSnapshots();
+  const meMsg = snapOut.find((o) => o.to === id1 && o.msg.t === 'me')?.msg as any;
+  assert.ok(meMsg?.triviaBoard, 'selfState phải chứa triviaBoard');
+  assert.equal(meMsg.triviaBoard.length, 2);
+  assert.equal(meMsg.triviaBoard[0].name, 'NguyenBinhKhiem');
 });
 
 // ------------------------------------------------------------ Nghề Sống

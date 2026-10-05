@@ -322,7 +322,103 @@ img.px { image-rendering: crisp-edges; image-rendering: pixelated; display: bloc
 .trivia-feedback { padding: 10px 12px; border-radius: 10px; font-size: 12px; line-height: 1.4; }
 .trivia-feedback.good { background: rgba(34, 197, 94, 0.15); border: 1px solid #22c55e; color: #bbf7d0; }
 .trivia-feedback.warn { background: rgba(234, 179, 8, 0.15); border: 1px solid #eab308; color: #fef08a; }
-.trivia-feedback p { margin: 4px 0 0; }
+.trivia-card.modal-wide { max-width: 520px; }
+.trivia-tab-header { display: flex; gap: 6px; align-items: center; flex: 1; }
+.trivia-tab-btn {
+  background: transparent; border: none; border-bottom: 2px solid transparent;
+  color: #94a3b8; font-size: 12.5px; font-weight: 600; padding: 4px 8px;
+  cursor: pointer; transition: all 0.15s;
+}
+.trivia-tab-btn:hover { color: #f8fafc; }
+.trivia-tab-btn.active { color: #fde047; border-bottom-color: #fde047; }
+
+.trivia-scholar-strip {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: 6px; background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 8px; font-size: 12px;
+}
+.scholar-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700;
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.25), rgba(217, 119, 6, 0.35));
+  color: #fde047; border: 1px solid rgba(234, 179, 8, 0.5);
+}
+.scholar-badge.large {
+  font-size: 13px; padding: 4px 12px; background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff; box-shadow: 0 0 10px rgba(245, 158, 11, 0.4); border: 1px solid #fde68a;
+}
+.scholar-badge.small { font-size: 10px; padding: 1px 6px; }
+
+/* ---- Bảng Vàng Khoa Cử ---- */
+.bang-vang-container {
+  display: flex; flex-direction: column; gap: 12px; max-height: 70vh; overflow-y: auto; padding-right: 4px;
+}
+.bang-vang-hero {
+  text-align: center; background: radial-gradient(circle at center, rgba(180, 83, 9, 0.3) 0%, rgba(0,0,0,0.45) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 12px; padding: 10px 8px;
+}
+.bang-vang-title {
+  font-size: 15px; font-weight: 800; letter-spacing: 1px; color: #fde047;
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+}
+.bang-vang-sub { font-size: 11px; font-style: italic; color: #cbd5e1; margin: 4px 0 0; }
+
+.bang-vang-my-card {
+  background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 8px;
+}
+.my-card-header { display: flex; justify-content: space-between; align-items: center; }
+.my-card-left { display: flex; align-items: baseline; gap: 6px; font-size: 12px; }
+.my-card-label { font-size: 10px; font-weight: 700; color: #94a3b8; letter-spacing: 0.5px; }
+.my-card-name { font-size: 14px; font-weight: 700; color: #fff; }
+.my-card-class { font-size: 11px; color: #38bdf8; }
+.my-card-progress { display: flex; flex-direction: column; gap: 4px; }
+.progress-info { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+.exam-progress-bar {
+  width: 100%; height: 8px; background: rgba(0, 0, 0, 0.5); border-radius: 999px;
+  overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.exam-progress-fill {
+  height: 100%; background: linear-gradient(90deg, #10b981, #f59e0b, #ef4444);
+  border-radius: 999px; transition: width 0.3s ease;
+}
+
+.bang-vang-table-wrap { display: flex; flex-direction: column; gap: 6px; }
+.bang-vang-table-title { font-size: 12px; font-weight: 700; color: #fde047; letter-spacing: 0.5px; }
+.bang-vang-empty {
+  text-align: center; padding: 20px 10px; font-size: 12px; color: #94a3b8; font-style: italic;
+  background: rgba(0,0,0,0.25); border-radius: 8px;
+}
+.bang-vang-list { display: flex; flex-direction: column; gap: 4px; }
+.bang-vang-row {
+  display: grid; grid-template-columns: 46px 1fr 65px 105px 55px; align-items: center;
+  padding: 6px 10px; background: rgba(0, 0, 0, 0.3); border-radius: 8px; font-size: 12px;
+  border: 1px solid transparent; transition: background 0.15s;
+}
+.bang-vang-row.header {
+  background: rgba(255, 255, 255, 0.05); font-weight: 600; color: #94a3b8; font-size: 11px; border: none;
+}
+.bang-vang-row.top-1 { background: rgba(234, 179, 8, 0.14); border-color: rgba(234, 179, 8, 0.45); }
+.bang-vang-row.top-2 { background: rgba(148, 163, 184, 0.14); border-color: rgba(148, 163, 184, 0.4); }
+.bang-vang-row.top-3 { background: rgba(180, 83, 9, 0.14); border-color: rgba(180, 83, 9, 0.4); }
+.bang-vang-row.is-me { border-color: #38bdf8; box-shadow: 0 0 6px rgba(56, 189, 248, 0.3); }
+.tag-me { font-size: 10px; color: #38bdf8; font-weight: 700; }
+.col-rank { text-align: center; font-weight: 700; }
+.col-score { text-align: right; }
+
+.scholarly-tier-guide {
+  background: rgba(0, 0, 0, 0.35); border-radius: 8px; padding: 8px 10px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.tier-guide-title { font-size: 10px; font-weight: 700; color: #94a3b8; letter-spacing: 0.5px; }
+.tier-guide-steps { display: flex; flex-wrap: wrap; gap: 4px; }
+.tier-step {
+  display: flex; flex-direction: column; align-items: center; padding: 3px 6px; border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 10px; flex: 1; min-width: 60px; text-align: center;
+}
+.tier-step.achieved {
+  background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.4); color: #86efac; font-weight: 600;
+}
+.tier-req { font-size: 9px; color: #64748b; }
 
 .codex-list, .notice-list { max-height: 52vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
 .codex-item {
