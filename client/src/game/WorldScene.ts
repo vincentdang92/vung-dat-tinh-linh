@@ -10,6 +10,7 @@ import { fishSpotAt, COOK_RANGE, HUNT, trapSpotOk, lifeLevel } from '../../../sh
 import { makeMapTexture, makeTextures } from './textures.ts';
 import type { Net } from '../net.ts';
 import { store, controls } from '../state.ts';
+import { marketGet } from '../actions.ts';
 import { NPCS } from '../../../shared/story.ts';
 import { ensureHeroSheet, heroAnimKey, npcAnimKey } from './sprites/sheet.ts';
 import { FRAME, FEET_ROW } from './sprites/heroes.ts';
@@ -51,6 +52,8 @@ interface UnitView {
   x: number;
   y: number;
   hero?: HeroState;
+  stallGfx?: Phaser.GameObjects.Graphics;
+  stallLabel?: Phaser.GameObjects.Text;
 }
 
 interface NpcView {
@@ -120,6 +123,7 @@ function questMarker(id: NpcId, me: SelfState | null): { text: string; color: st
   }
   if (id === 'caothi') return { text: '📜', color: '#fde047' };
   if (id === 'nuoc') return { text: '🍵', color: '#86efac' };
+  if (id === 'mo') return { text: '🏮', color: '#f472b6' };
   return null;
 }
 
@@ -469,11 +473,23 @@ export class WorldScene extends Phaser.Scene {
       fontFamily: 'system-ui, sans-serif', fontSize: '11px', color: '#ffffff',
       stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5, 1);
+    const stallGfx = this.add.graphics();
+    const stallLabel = this.add.text(0, -56, '', {
+      fontFamily: 'system-ui, sans-serif', fontSize: '10px', fontStyle: 'bold',
+      color: '#fef08a', stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setVisible(false);
+    stallLabel.setInteractive({ useHandCursor: true });
+    stallLabel.on('pointerdown', (e: Phaser.Input.Pointer) => {
+      e.event?.stopPropagation?.();
+      store.set({ marketOpen: true, marketTab: 'market' });
+      marketGet();
+    });
     const talismans: Phaser.GameObjects.Image[] = [];
     if (pb.c === 'mage') for (let i = 0; i < 2; i++) talismans.push(this.add.image(0, 0, 'fx_talisman'));
-    const root = this.add.container(0, 0, [shadow, sprite, ...talismans, bar, label]);
+    const root = this.add.container(0, 0, [stallGfx, shadow, sprite, ...talismans, bar, label, stallLabel]);
     return {
       root, body: sprite, bar, label, lastHp: -1, lastMh: -1, x: pb.x, y: pb.y,
+      stallGfx, stallLabel,
       hero: { sprite, weapon, texKey, animKey: '', movingUntil: 0, attackUntil: 0, atkAng: 0, talismans },
     };
   }
@@ -561,10 +577,57 @@ export class WorldScene extends Phaser.Scene {
       v.root.setAlpha(pb.dead ? 0.35 : 1);
       if (v.label && v.label.text !== `${pb.n} · ${pb.lv}`) v.label.setText(`${pb.n} · ${pb.lv}`);
       this.drawBar(v, pb.hp, pb.mh, 28, -38, id === myId ? 0x4ade80 : 0x60a5fa);
+      this.drawStall(v, pb);
       this.drawLife(id, x, y, pb);
     }
     for (const [id, v] of this.players) {
       if (!b.p.has(id)) { v.root.destroy(); this.players.delete(id); this.steamAt.delete(id); }
+    }
+  }
+
+  /** Sạp hàng chợ quê: Chiếu cói vàng trải dưới chân, mẹt tre hàng họ, và biển tên sạp trên đầu */
+  private drawStall(v: UnitView, pb: PlayerSnap) {
+    if (!v.stallGfx || !v.stallLabel) return;
+    if (pb.stall && !pb.dead) {
+      const stallText = `🏮 ${pb.stall}`;
+      if (v.stallLabel.text !== stallText) {
+        v.stallLabel.setText(stallText);
+      }
+      v.stallLabel.setVisible(true);
+      // Nhấp nhô nhẹ biển sạp
+      v.stallLabel.y = -56 + Math.sin(this.time.now / 200) * 1.5;
+
+      v.stallGfx.clear();
+      // Chiếu cói vàng trải dưới chân
+      v.stallGfx.fillStyle(0xd97706, 0.4);
+      v.stallGfx.fillRoundedRect(-21, 2, 42, 17, 3);
+      v.stallGfx.fillStyle(0xfde68a, 0.95);
+      v.stallGfx.fillRoundedRect(-20, 1, 40, 16, 2);
+      v.stallGfx.lineStyle(1.5, 0xb45309, 1);
+      v.stallGfx.strokeRoundedRect(-20, 1, 40, 16, 2);
+      // Gân nan chiếu cói
+      v.stallGfx.lineStyle(1, 0xd97706, 0.4);
+      for (let sx = -16; sx <= 16; sx += 5) {
+        v.stallGfx.lineBetween(sx, 1, sx, 17);
+      }
+      // Mẹt tre 1 bên trái: thúng thóc / nông sản
+      v.stallGfx.fillStyle(0x78350f, 1);
+      v.stallGfx.fillEllipse(-13, 9, 6, 4);
+      v.stallGfx.fillStyle(0xfacc15, 1);
+      v.stallGfx.fillCircle(-13, 8.5, 2.5);
+
+      // Mẹt tre 2 bên phải: cá tươi / ẩm thực
+      v.stallGfx.fillStyle(0x78350f, 1);
+      v.stallGfx.fillEllipse(13, 9, 6, 4);
+      v.stallGfx.fillStyle(0x38bdf8, 1);
+      v.stallGfx.fillCircle(13, 8.5, 2.5);
+      v.stallGfx.setVisible(true);
+    } else {
+      if (v.stallLabel.visible) v.stallLabel.setVisible(false);
+      if (v.stallGfx.visible) {
+        v.stallGfx.clear();
+        v.stallGfx.setVisible(false);
+      }
     }
   }
 

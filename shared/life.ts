@@ -85,6 +85,13 @@ export const LIFE_ITEMS: Record<string, LifeItem> = {
   trung_ga: { key: 'trung_ga', name: 'Trứng gà ta', icon: '🥚', kind: 'food', sell: 4, desc: 'Trứng gà vỏ hồng, lòng đỏ tươi ngon' },
   trung_hai_long: { key: 'trung_hai_long', name: 'Trứng gà hai lòng', icon: '✨', kind: 'food', sell: 15, desc: 'Trứng gà hai lòng đỏ cực hiếm, mang lại điềm lành' },
   phan_ga: { key: 'phan_ga', name: 'Phân chuồng hoai mục', icon: '💩', kind: 'mat', sell: 2, desc: 'Bón lót cho ruộng lúa giúp tăng 25% sản lượng' },
+  // Nông cụ & giống đặc sản Chợ Phiên Làng Tre
+  can_cau_truc: { key: 'can_cau_truc', name: 'Cần trúc ngà', icon: '🎋', kind: 'mat', sell: 25, unit: 'chiếc', desc: 'Cần trúc ngà chạm hoa sen, cá cắn nhanh hơn 35% và tăng tỉ lệ gặp cá hiếm' },
+  bay_sat: { key: 'bay_sat', name: 'Bẫy thép cải tiến', icon: '⚙️', kind: 'mat', sell: 20, unit: 'cái', desc: 'Bẫy lò xo thép tốt, tăng gấp đôi tỉ lệ bẫy được Lợn rừng & Gà rừng' },
+  phan_bon_rong: { key: 'phan_bon_rong', name: 'Phân trùn quế', icon: '🪱', kind: 'mat', sell: 12, unit: 'bao', desc: 'Bón ruộng giúp lúa lớn nhanh tức thì và tăng sản lượng' },
+  giong_tam_thom: { key: 'giong_tam_thom', name: 'Giống lúa Tám Thơm', icon: '🌾', kind: 'mat', sell: 6, desc: 'Lúa Tám Thơm đặc sản tiến vua, gieo ngoài ruộng Vườn Nhà' },
+  thoc_tam_thom: { key: 'thoc_tam_thom', name: 'Thóc Tám Thơm', icon: '🌾', kind: 'mat', sell: 8, desc: 'Thóc Tám thơm lừng, xay xát ra gạo Tám Thơm và cám' },
+  gao_tam_thom: { key: 'gao_tam_thom', name: 'Gạo Tám Thơm', icon: '🍚', kind: 'mat', sell: 12, desc: 'Hạt ngọc tiến vua, nấu cơm dẻo quánh thơm nức' },
   // Món ăn
   ca_nuong: { key: 'ca_nuong', name: 'Cá nướng trui', icon: '🍢', kind: 'food', sell: 6 },
   tom_nuong: { key: 'tom_nuong', name: 'Tôm nướng', icon: '🍤', kind: 'food', sell: 6 },
@@ -99,6 +106,7 @@ export const LIFE_ITEMS: Record<string, LifeItem> = {
   trung_luoc: { key: 'trung_luoc', name: 'Trứng luộc nước dừa', icon: '🥚', kind: 'food', sell: 8 },
   com_nam: { key: 'com_nam', name: 'Cơm nắm muối vừng', icon: '🍙', kind: 'food', sell: 14 },
   xoi_ga: { key: 'xoi_ga', name: 'Xôi gà nếp cái hoa vàng', icon: '🍛', kind: 'food', sell: 24 },
+  com_tam_hoang_gia: { key: 'com_tam_hoang_gia', name: 'Cơm Tám Thơm Hoàng Gia', icon: '🍱', kind: 'food', sell: 35 },
 };
 
 // ------------------------------------------------------------ Món ăn: hiệu ứng
@@ -131,6 +139,7 @@ export const FOODS: Record<string, FoodDef> = {
   trung_luoc: { heal: 0.15, khi: 25, desc: 'Hồi 15% máu và 25 Khí' },
   com_nam: { heal: 0.2, buff: { stat: 'hp', pct: 0.1, ms: 15 * MIN, label: '+10% Máu tối đa' }, desc: 'Hồi 20% máu, +10% Máu tối đa trong 15 phút' },
   xoi_ga: { heal: 0.25, buff: { stat: 'atk', pct: 0.12, ms: 15 * MIN, label: '+12% Công' }, desc: 'Hồi 25% máu, +12% Công trong 15 phút' },
+  com_tam_hoang_gia: { heal: 0.3, buff: { stat: 'atk', pct: 0.15, ms: 15 * MIN, label: '+15% Công' }, desc: 'Hồi 30% máu, +15% Công trong 15 phút' },
 };
 
 /** Áp buff ăn uống lên chỉ số (vừa phải, cho vui). */
@@ -173,6 +182,10 @@ export const RECIPES: Record<string, Recipe> = {
   canh_chua: {
     key: 'canh_chua', name: 'Canh chua cá',
     needs: [{ keys: ['ca_tre', 'ca_qua', 'ca_chep'], qty: 1 }, { keys: ['tom'], qty: 1 }], minLv: 5, xp: 22, fire: 'bep',
+  },
+  com_tam_hoang_gia: {
+    key: 'com_tam_hoang_gia', name: 'Cơm Tám Thơm Hoàng Gia',
+    needs: [{ keys: ['gao_tam_thom'], qty: 2 }, { keys: ['thit_lon', 'thit_ga'], qty: 1 }], minLv: 4, xp: 25, fire: 'bep',
   },
 };
 
@@ -385,7 +398,7 @@ export const COOK_SOCIAL_MULT = 1.5;
 
 // ------------------------------------------------------------ Canh Nông: Nuôi Gà & Trồng Lúa Nước
 
-export type CropKind = 'giong_te' | 'giong_nep';
+export type CropKind = 'giong_te' | 'giong_nep' | 'giong_tam_thom';
 export type PlotState = 'empty' | 'plowed' | 'planted';
 
 export interface PlotData {
@@ -395,6 +408,7 @@ export interface PlotData {
   progress?: number; // 0..1 (1 = chín rộ)
   waterUntil?: number; // ms đất còn ẩm
   fertilized?: boolean; // bón phân gà (+25% sản lượng thóc)
+  superFertilized?: boolean; // bón phân trùn quế (+40% sản lượng thóc & lớn nhanh)
   pest?: boolean; // có sâu bọ / chim sẻ phá lúa
   lastUpdate?: number; // ms
 }
@@ -451,6 +465,7 @@ export const FARM = {
   crops: {
     giong_te: { name: 'Lúa tẻ', durationMs: 180_000, yieldKey: 'thoc', yieldQty: 4, strawQty: 2, xp: 12, seedCost: 4 },
     giong_nep: { name: 'Lúa nếp', durationMs: 300_000, yieldKey: 'thoc_nep', yieldQty: 4, strawQty: 2, xp: 18, seedCost: 8 },
+    giong_tam_thom: { name: 'Lúa Tám Thơm', durationMs: 420_000, yieldKey: 'thoc_tam_thom', yieldQty: 4, strawQty: 2, xp: 28, seedCost: 15 },
   } as Record<CropKind, { name: string; durationMs: number; yieldKey: string; yieldQty: number; strawQty: number; xp: number; seedCost: number }>,
   chickCost: 15,
   socialWaterXp: 2,
@@ -650,10 +665,11 @@ export function normalizeLife(v: unknown): LifeData {
           farm.plots[i] = {
             id: i,
             state: p.state,
-            crop: p.crop && (p.crop === 'giong_te' || p.crop === 'giong_nep') ? p.crop : undefined,
+            crop: p.crop && (p.crop === 'giong_te' || p.crop === 'giong_nep' || p.crop === 'giong_tam_thom') ? p.crop : undefined,
             progress: Number.isFinite(p.progress) ? Math.max(0, Math.min(1, Number(p.progress))) : undefined,
             waterUntil: Number.isFinite(p.waterUntil) ? Number(p.waterUntil) : undefined,
             fertilized: !!p.fertilized,
+            superFertilized: !!p.superFertilized,
             pest: !!p.pest,
             lastUpdate: Number.isFinite(p.lastUpdate) ? Number(p.lastUpdate) : undefined,
           };
@@ -689,3 +705,89 @@ export function normalizeLife(v: unknown): LifeData {
 
   return out;
 }
+
+// ------------------------------------------------------------ Chợ Phiên Làng Tre & Giao Thương
+
+export const CO_MO_SHOP: { key: string; name: string; price: number; desc: string }[] = [
+  { key: 'can_cau_truc', name: 'Cần trúc ngà', price: 60, desc: 'Cá cắn nhanh hơn 35%, tăng tỉ lệ gặp cá hiếm' },
+  { key: 'bay_sat', name: 'Bẫy thép cải tiến', price: 50, desc: 'Tăng gấp đôi tỉ lệ bẫy được Lợn rừng & Gà rừng' },
+  { key: 'phan_bon_rong', name: 'Phân trùn quế', price: 30, desc: 'Bón ruộng giúp lúa lớn nhanh vượt trội' },
+  { key: 'giong_tam_thom', name: 'Giống lúa Tám Thơm', price: 15, desc: 'Lúa đặc sản thơm ngon, năng suất cao' },
+  { key: 'giong_nep', name: 'Giống nếp cái hoa vàng', price: 10, desc: 'Hạt nếp tròn mẩy đồ xôi' },
+  { key: 'giong_te', name: 'Giống lúa tẻ', price: 5, desc: 'Lúa tẻ bông dài hạt chắc' },
+  { key: 'ga_con', name: 'Gà con giống', price: 12, desc: 'Thả vào chuồng nuôi đẻ trứng' },
+];
+
+export interface MarketListing {
+  id: string;
+  sellerToken: string;
+  sellerName: string;
+  key: string;
+  name: string;
+  icon: string;
+  kind: string;
+  qty: number;
+  unitPrice: number;
+  createdAt: number;
+}
+
+export interface MarketSale {
+  id: string;
+  buyerName: string;
+  itemKey: string;
+  itemName: string;
+  qty: number;
+  totalGold: number;
+  time: number;
+}
+
+export interface MarketEvent {
+  id: string;
+  title: string;
+  desc: string;
+  multipliers: Record<string, number>;
+}
+
+export const MARKET_EVENTS: MarketEvent[] = [
+  {
+    id: 'dai_tiec',
+    title: 'Hội Đình Mở Tiệc',
+    desc: 'Làng chuẩn bị cỗ tiệc, thương lái thu mua Xôi gà, Thịt lợn, Gạo nếp với giá +50%!',
+    multipliers: { xoi_ga: 1.5, thit_lon: 1.5, gao_nep: 1.5, thoc_nep: 1.5, lon_nuong: 1.5, com_tam_hoang_gia: 1.4 },
+  },
+  {
+    id: 'ngu_thoi',
+    title: 'Mùa Nước Nổi',
+    desc: 'Nước sông dâng, các quán ăn săn lùng Cá chép, Cá quả, Tôm càng với giá +40%!',
+    multipliers: { ca_chep: 1.4, ca_qua: 1.4, tom: 1.4, ca_kho: 1.4, canh_chua: 1.4, luon_nuong: 1.4 },
+  },
+  {
+    id: 'hoi_ga',
+    title: 'Hội Gà Làng Tre',
+    desc: 'Hội làng thi gà béo, thương lái thu mua Trứng gà, Trứng hai lòng, Thịt gà với giá +50%!',
+    multipliers: { trung_ga: 1.5, trung_hai_long: 1.5, thit_ga: 1.5, ga_nuong: 1.5, xoi_ga: 1.4 },
+  },
+  {
+    id: 'phien_cho_dong',
+    title: 'Phiên Chợ Mở Rộng',
+    desc: 'Khách thập phương tấp nập kéo về chợ, tất cả nông sản và cá tươi được trả thêm +25%!',
+    multipliers: {
+      ca_ro: 1.25, ca_diec: 1.25, tom: 1.25, cua_dong: 1.25, thoc: 1.25, gao_te: 1.25,
+      thit_tho: 1.25, le_om: 1.25, thoc_tam_thom: 1.3, gao_tam_thom: 1.3,
+    },
+  },
+];
+
+export function getTodayMarketEvent(now: number): MarketEvent {
+  const dayIndex = Math.floor((now + 7 * 3600_000) / 86400_000);
+  return MARKET_EVENTS[Math.abs(dayIndex) % MARKET_EVENTS.length];
+}
+
+export function getMarketSellPrice(key: string, soldToday: number, now: number): number {
+  const base = unitSellPrice(key, soldToday);
+  if (base <= 0) return 0;
+  const evt = getTodayMarketEvent(now);
+  const mult = evt.multipliers[key] ?? 1.0;
+  return Math.max(1, Math.round(base * mult));
+}
+

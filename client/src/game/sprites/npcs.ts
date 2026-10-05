@@ -3,9 +3,9 @@
 import { PixelGrid } from './pixel.ts';
 import { P } from './palette.ts';
 
-export type NpcId = 'tao' | 'nuoc' | 'cuoi' | 'caothi' | 'do' | 'tam';
+export type NpcId = 'tao' | 'nuoc' | 'cuoi' | 'caothi' | 'do' | 'tam' | 'mo';
 export type NpcAnim = 'idle' | 'talk';
-export const NPC_IDS: NpcId[] = ['tao', 'nuoc', 'cuoi', 'caothi', 'do', 'tam'];
+export const NPC_IDS: NpcId[] = ['tao', 'nuoc', 'cuoi', 'caothi', 'do', 'tam', 'mo'];
 export const NPC_ANIMS: Record<NpcAnim, { frames: number; rate: number }> = {
   idle: { frames: 4, rate: 3 },
   talk: { frames: 2, rate: 6 },
@@ -19,6 +19,7 @@ export const NPC_PROPS: Record<NpcId, { key: string; w: number; h: number; frame
   caothi: { key: 'prop_caothi', w: 24, h: 24, frames: 1, dx: 24, dy: 10 },
   do: { key: 'prop_do', w: 24, h: 36, frames: 1, dx: -24, dy: 10 },
   tam: { key: 'prop_tam', w: 24, h: 24, frames: 1, dx: 24, dy: 10 },
+  mo: { key: 'prop_mo', w: 32, h: 24, frames: 1, dx: 26, dy: 10 },
 };
 
 // ------------------------------------------------------------------ bộ phận chung
@@ -274,6 +275,53 @@ function drawTam(g: PixelGrid, anim: NpcAnim, i: number) {
   g.line(32, 14 + b, 32, 20 + b, P.hair);
 }
 
+// ------------------------------------------------------------------ Cô Mơ (Lái Buôn Chợ Quê)
+function drawMo(g: PixelGrid, anim: NpcAnim, i: number) {
+  const b = anim === 'talk' ? i : (i === 2 ? 1 : 0);
+  const talking = anim === 'talk' && i === 1;
+
+  // guốc mộc & gấu váy đen
+  g.rect(19, 41, 3, 1, P.wood); g.rect(26, 41, 3, 1, P.wood);
+  g.rrect(15, 32 + b, 18, 9 - b, P.skirt);
+  g.rect(15, 40, 18, 1, P.outline);
+
+  // áo tứ thân màu vàng mơ duyên dáng
+  g.rrect(15, 24 + b, 18, 9, P.amber);
+  g.rect(31, 25 + b, 2, 7, P.amberDark);
+  // yếm đào đỏ thắm hoa sen
+  g.tri(19, 24 + b, 29, 24 + b, 24, 30 + b, P.betel);
+  g.set(24, 27 + b, P.gold);
+  g.rect(16, 31 + b, 16, 1, P.amberDark);
+
+  // tay phải cầm quạt nan tre phe phẩy đón khách
+  const fanAnim = anim === 'idle' && i >= 2;
+  const rx = fanAnim || talking ? 33 : 30, ry = 28 + b;
+  g.line(31, 26 + b, rx, ry, P.amber, 3);
+  g.ellipse(rx + 0.5, ry + 0.5, 1.6, 1.6, P.skin);
+  // quạt nan tre nhỏ trên tay
+  g.tri(rx + 1, ry - 3, rx - 2, ry - 7, rx + 4, ry - 6, P.straw);
+  g.line(rx, ry, rx + 1, ry - 3, P.bambooDark);
+
+  // tay trái chống hông bên túi tiền buôn bán
+  g.line(16, 26 + b, 18, 31 + b, P.amber, 3);
+  g.ellipse(18.5, 31.5 + b, 1.6, 1.6, P.skin);
+  g.ellipse(16, 33 + b, 2.5, 2.5, P.leather); // túi tiền da
+  g.set(16, 32 + b, P.gold); // khoá túi
+
+  // khuôn mặt tươi tắn, lanh lợi
+  g.ellipse(24, 17 + b, 8.5, 7.5, P.skin);
+  happyEyes(g, b, 17);
+  g.rect(18, 19 + b, 2, 1, P.blush); g.rect(28, 19 + b, 2, 1, P.blush);
+  g.rect(22, 21 + b, 4, talking ? 2 : 1, P.mouth); // nụ cười đon đả
+
+  // khăn mỏ quạ màu đen nhung duyên dáng
+  g.tri(24, 16 + b, 15, 10 + b, 33, 10 + b, P.khanBlack); // chóp mỏ quạ
+  g.ellipse(24, 11 + b, 9.5, 4.5, P.khanBlack);
+  g.rect(17, 11 + b, 14, 1, P.khanFold);
+  g.line(15, 14 + b, 15, 21 + b, P.hair);
+  g.line(32, 14 + b, 32, 21 + b, P.hair);
+}
+
 // ------------------------------------------------------------------ Cáo Thị Làng
 function drawCaothi(g: PixelGrid, _anim: NpcAnim, _i: number) {
   // Cột gỗ hai bên
@@ -307,6 +355,7 @@ export function drawNpcFrame(id: NpcId, anim: NpcAnim, i: number): PixelGrid {
   else if (id === 'cuoi') drawCuoi(g, anim, i);
   else if (id === 'do') drawDo(g, anim, i);
   else if (id === 'tam') drawTam(g, anim, i);
+  else if (id === 'mo') drawMo(g, anim, i);
   else drawCaothi(g, anim, i);
   g.outline(P.outline);
   return g;
@@ -320,7 +369,7 @@ export function npcFrameList(): { name: string; anim: NpcAnim; i: number }[] {
   return out;
 }
 
-/** Prop: kiềng lửa (3 khung lửa), khay chè, cây đa non, cọc neo, giỏ hoa sen, chum cảnh. */
+/** Prop: kiềng lửa (3 khung lửa), khay chè, cây đa non, cọc neo, giỏ hoa sen, quang gánh chợ, chum cảnh. */
 export function drawPropFrame(id: NpcId, i: number): PixelGrid {
   const spec = NPC_PROPS[id];
   const g = new PixelGrid(spec.w, spec.h);
@@ -373,6 +422,24 @@ export function drawPropFrame(id: NpcId, i: number): PixelGrid {
     g.ellipse(12, 10, 3, 4, P.blush); // búp sen hồng
     g.set(12, 8, P.white);
     g.rect(11, 13, 2, 3, P.leaf);
+  } else if (id === 'mo') {
+    // đôi quang gánh mẹt tre nông sản
+    g.line(4, 9, 28, 9, P.bambooDark, 2);
+    g.line(16, 7, 16, 9, P.bamboo);
+    // dây quang gánh nối xuống 2 mẹt
+    g.line(6, 10, 4, 17, P.strawDark);
+    g.line(10, 10, 12, 17, P.strawDark);
+    g.line(22, 10, 20, 17, P.strawDark);
+    g.line(26, 10, 28, 17, P.strawDark);
+    // mẹt 1 (bên trái): thóc vàng & rau củ
+    g.ellipse(8, 18, 6, 3, P.bambooDark);
+    g.ellipse(8, 17, 5, 2.3, P.gold);
+    g.set(7, 16, P.leaf); g.set(9, 16, P.redLight);
+    // mẹt 2 (bên phải): cá tươi & hoa quả
+    g.ellipse(24, 18, 6, 3, P.bambooDark);
+    g.ellipse(24, 17, 5, 2.3, P.bamboo);
+    g.ellipse(23, 16, 3, 1.5, P.ironLight);
+    g.set(26, 16, P.amber);
   } else {
     // chum gốm / chậu cảnh nhỏ chân bảng cáo thị
     g.ellipse(12, 15, 6, 7, P.clayDark);

@@ -27,7 +27,7 @@ const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 
 const store = new ProfileStore(DATA_DIR, SUPABASE_URL, SUPABASE_KEY);
 const auth = new AuthService(loadAuthSecret(DATA_DIR, process.env.AUTH_SECRET), new AccountStore(DATA_DIR, store.db), store);
-const realm = new Realm();
+const realm = new Realm({ dataDir: DATA_DIR });
 realm.onSave = (p) => {
   store.save(p).catch((e) => console.error('[Store] Ghi dữ liệu thất bại:', e));
 };

@@ -8,21 +8,26 @@ import type { ClientMsg } from '../../shared/protocol.ts';
 import { World } from './world.ts';
 import type { Outgoing, Profile, Player } from './world.ts';
 import { defaultFarm, normalizeLife, lifeLevel } from '../../shared/life.ts';
+import { MarketManager } from './market.ts';
 
 export class Realm {
   readonly worlds = new Map<MapId, World>();
   private where = new Map<number, MapId>(); // id người chơi -> bản đồ đang đứng
   private outbox: Outgoing[] = [];
   private nextId = 1;
+  readonly market: MarketManager;
   onSave: (p: Profile) => void = () => {};
 
-  constructor(opts: { rnd?: () => number } = {}) {
+  constructor(opts: { rnd?: () => number; dataDir?: string } = {}) {
+    this.market = new MarketManager(opts.dataDir);
     const ids = () => this.nextId++;
     for (const mapId of MAP_IDS) {
       const w = new World({
         rnd: opts.rnd,
         mapId,
         ids,
+        market: this.market,
+        onFindPlayerByToken: (token) => this.findPlayerByToken(token),
         onFindTargetFarm: (name) => {
           const target = this.findPlayerByName(name);
           if (!target) return null;
@@ -41,6 +46,15 @@ export class Realm {
       w.onSave = (p) => this.onSave(p);
       this.worlds.set(mapId, w);
     }
+  }
+
+  findPlayerByToken(token: string): Player | undefined {
+    for (const w of this.worlds.values()) {
+      for (const p of w.players.values()) {
+        if (p.prof.token === token) return p;
+      }
+    }
+    return undefined;
   }
 
   findPlayerByName(name: string): Player | undefined {

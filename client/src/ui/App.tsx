@@ -7,6 +7,7 @@ import {
   fishAction, cookRecipe, eatFood, sellBag, bagDrop, lightFire, trapSet, trapTake,
   farmPlow, farmPlant, farmWater, farmWeed, farmFertilize, farmHarvest, farmMill,
   coopAdd, coopFeed, coopCollect, coopClean, farmVisit, farmCheer,
+  marketGet, marketSell, marketBuy, marketCancel, marketClaim, npcMarketBuy, stallSet,
 } from '../actions.ts';
 import { quickLogin, refreshMe, claimLegacy, logout } from '../auth.ts';
 import { CLASSES, WEAPONS, RARITY_COLOR, ULTIMATES } from '../../../shared/data.ts';
@@ -21,8 +22,9 @@ import {
   LIFE_ITEMS, FOODS, RECIPES, LIFE_SKILLS, LIFE_SKILL_NAMES, BAG_KINDS, SELL_DAILY_CAP, CUI_PRICE, BAY_PRICE, HUNT, CATCH_NAME,
   FARM, FOLK_CHEERS, defaultFarm,
   lifeLevel, lifeNext, pickIngredients, unitSellPrice,
+  CO_MO_SHOP, getTodayMarketEvent, getMarketSellPrice,
 } from '../../../shared/life.ts';
-import type { LifeSkill, FishTier } from '../../../shared/life.ts';
+import type { LifeSkill, FishTier, MarketListing } from '../../../shared/life.ts';
 import { heroPreviewUrl, weaponIconUrl, leafIconUrl } from '../game/sprites/sheet.ts';
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
@@ -295,7 +297,8 @@ function Hud() {
   const bagOpen = useStore((s) => s.bagOpen);
   const cookOpen = useStore((s) => s.cookOpen);
   const farmOpen = useStore((s) => s.farmOpen);
-  const modalOpen = !!dialogue || shopOpen || triviaOpen || codexOpen || noticeOpen || cookOpen || farmOpen;
+  const marketOpen = useStore((s) => s.marketOpen);
+  const modalOpen = !!dialogue || shopOpen || triviaOpen || codexOpen || noticeOpen || cookOpen || farmOpen || marketOpen;
 
   return (
     <>
@@ -323,9 +326,13 @@ function Hud() {
       {me?.visitFarm && <VisitingBanner farm={me.visitFarm} />}
 
       <div class="top-buttons">
-        <button class="icon-btn" title="Túi đồ" onClick={() => store.set({ invOpen: !invOpen, bagOpen: false, farmOpen: false })}>🎒</button>
-        <button class="icon-btn" title="Giỏ Tre (Nghề Sống)" onClick={() => store.set({ bagOpen: !bagOpen, invOpen: false, farmOpen: false })}>🧺</button>
-        <button class="icon-btn" title="Nông Trại & Canh Nông" onClick={() => store.set({ farmOpen: !farmOpen, invOpen: false, bagOpen: false })}>🌾</button>
+        <button class="icon-btn" title="Túi đồ" onClick={() => store.set({ invOpen: !invOpen, bagOpen: false, farmOpen: false, marketOpen: false })}>🎒</button>
+        <button class="icon-btn" title="Giỏ Tre (Nghề Sống)" onClick={() => store.set({ bagOpen: !bagOpen, invOpen: false, farmOpen: false, marketOpen: false })}>🧺</button>
+        <button class="icon-btn" title="Nông Trại & Canh Nông" onClick={() => store.set({ farmOpen: !farmOpen, invOpen: false, bagOpen: false, marketOpen: false })}>🌾</button>
+        <button class="icon-btn" title="Chợ Phiên Làng Tre" onClick={() => {
+          if (!marketOpen) { marketGet(); }
+          store.set({ marketOpen: !marketOpen, invOpen: false, bagOpen: false, farmOpen: false });
+        }}>🏮</button>
         <button class="icon-btn" title="Sổ tay Tranh Đông Hồ" onClick={() => store.set({ codexOpen: !codexOpen })}>🖼️</button>
         <button class="icon-btn" title="Cáo Thị Làng" onClick={() => store.set({ noticeOpen: !noticeOpen })}>📜</button>
         <button class="icon-btn" title="Kênh chat" onClick={() => store.set({ chatOpen: !store.get().chatOpen })}>💬</button>
@@ -351,6 +358,7 @@ function Hud() {
       {noticeOpen && <NoticeModal />}
       {cookOpen && <CookModal />}
       {farmOpen && <FarmModal />}
+      {marketOpen && <MarketModal />}
       {invOpen && <Inventory />}
       {bagOpen && <BagPanel />}
       {dead && <DeathOverlay />}
@@ -919,6 +927,14 @@ function DialogueBox({ dialogue }: { dialogue: NonNullable<ReturnType<typeof sto
           {dialogue.npcId === 'caothi' && (
             <button class="btn primary" onClick={() => { store.set({ dialogue: null, noticeOpen: true }); }}>
               Xem Cáo Thị 📜
+            </button>
+          )}
+          {dialogue.npcId === 'mo' && (
+            <button class="btn primary" style={{ background: '#ec4899', color: '#fff' }} onClick={() => {
+              store.set({ dialogue: null, marketOpen: true, marketTab: 'npc' });
+              marketGet();
+            }}>
+              Vào Chợ Phiên 🏮
             </button>
           )}
           <button class="btn ghost" onClick={handleNext}>
@@ -1857,6 +1873,435 @@ function FarmModal() {
           )}
         </div>
 
+        <div class="dlg-actions">
+          <button class="btn ghost" onClick={close}>Đóng</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ Chợ Phiên Làng Tre & Giao Thương
+function MarketModal() {
+  const me = useStore((s) => s.me);
+  const data = useStore((s) => s.marketData);
+  const tab = useStore((s) => s.marketTab);
+  const filterSellerToken = useStore((s) => s.stallSellerToken);
+  const [cat, setCat] = useState<'all' | 'crop' | 'fish' | 'meat' | 'food'>('all');
+  const [buyTarget, setBuyTarget] = useState<MarketListing | null>(null);
+  const [buyQty, setBuyQty] = useState(1);
+
+  // Form đăng bán
+  const [sellKey, setSellKey] = useState<string>('');
+  const [sellQty, setSellQty] = useState<number>(1);
+  const [sellPrice, setSellPrice] = useState<number>(10);
+  const [stallName, setStallName] = useState<string>(() => `Sạp của ${me?.name ?? 'bản quán'}`);
+
+  const close = () => store.set({ marketOpen: false, stallSellerToken: undefined });
+  const setTab = (t: 'market' | 'npc' | 'my') => store.set({ marketTab: t });
+
+  const event = getTodayMarketEvent(Date.now());
+  const listings = data?.listings ?? [];
+  const earnings = me?.marketEarnings ?? data?.myEarnings ?? 0;
+  const bag = me?.life.bag ?? {};
+
+  // Vật phẩm trong giỏ có thể đăng bán
+  const tradableBagItems = Object.entries(bag)
+    .filter(([k, q]) => (q ?? 0) > 0 && LIFE_ITEMS[k] && LIFE_ITEMS[k].kind !== 'junk' && k !== 'cui');
+
+  const myListingItems = listings.filter((l) => l.sellerName === me?.name);
+
+  // Lọc theo category
+  const filteredListings = listings.filter((l) => {
+    if (filterSellerToken && l.sellerToken !== filterSellerToken) return false;
+    if (cat === 'all') return true;
+    const kind = LIFE_ITEMS[l.key]?.kind;
+    if (cat === 'fish') return kind === 'fish';
+    if (cat === 'meat') return kind === 'meat';
+    if (cat === 'food') return kind === 'food';
+    if (cat === 'crop') return kind === 'mat' || l.key.startsWith('giong_') || l.key.startsWith('thoc_') || l.key.startsWith('gao_');
+    return true;
+  });
+
+  const handleOpenBuy = (item: MarketListing) => {
+    setBuyTarget(item);
+    setBuyQty(1);
+  };
+
+  const handleConfirmBuy = () => {
+    if (!buyTarget) return;
+    marketBuy(buyTarget.id, buyQty);
+    setBuyTarget(null);
+  };
+
+  const handleCreateListing = (e: Event) => {
+    e.preventDefault();
+    if (!sellKey || sellQty <= 0 || sellPrice <= 0) return;
+    marketSell(sellKey, sellQty, sellPrice);
+    setSellKey('');
+  };
+
+  return (
+    <div class="modal-overlay" onClick={close}>
+      <div class="market-card" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div class="dlg-header">
+          <div class="market-title-wrap">
+            <b>🏮 Chợ Phiên Làng Tre</b>
+            <span class="market-gold-tag">💰 {me?.gold ?? 0} Vàng</span>
+          </div>
+          <button class="icon-btn small" onClick={close}>✕</button>
+        </div>
+
+        {/* Tab switch */}
+        <div class="market-tabs">
+          <button class={`market-tab-btn ${tab === 'market' ? 'active' : ''}`} onClick={() => setTab('market')}>
+            🏮 Chợ Ký Gửi ({listings.length})
+          </button>
+          <button class={`market-tab-btn ${tab === 'npc' ? 'active' : ''}`} onClick={() => setTab('npc')}>
+            🌾 Cô Hàng Chợ (NPC)
+          </button>
+          <button class={`market-tab-btn ${tab === 'my' ? 'active' : ''}`} onClick={() => setTab('my')}>
+            🎪 Sạp Của Tôi {earnings > 0 ? `(💰${earnings})` : ''}
+          </button>
+        </div>
+
+        {/* Tab 1: Chợ Ký Gửi */}
+        {tab === 'market' && (
+          <div class="market-body">
+            {filterSellerToken && (
+              <div class="seller-filter-banner">
+                <span>🏮 Đang xem sạp hàng của người chơi</span>
+                <button class="btn ghost small" onClick={() => store.set({ stallSellerToken: undefined })}>Xem tất cả chợ</button>
+              </div>
+            )}
+
+            {/* Filter pills */}
+            <div class="market-cat-bar">
+              <button class={`cat-chip ${cat === 'all' ? 'active' : ''}`} onClick={() => setCat('all')}>Tất cả</button>
+              <button class={`cat-chip ${cat === 'crop' ? 'active' : ''}`} onClick={() => setCat('crop')}>🌾 Nông sản</button>
+              <button class={`cat-chip ${cat === 'fish' ? 'active' : ''}`} onClick={() => setCat('fish')}>🐟 Cá tôm</button>
+              <button class={`cat-chip ${cat === 'meat' ? 'active' : ''}`} onClick={() => setCat('meat')}>🥩 Thịt thú</button>
+              <button class={`cat-chip ${cat === 'food' ? 'active' : ''}`} onClick={() => setCat('food')}>🍲 Ẩm thực</button>
+            </div>
+
+            {/* Danh sách mặt hàng ký gửi */}
+            <div class="market-listing-list">
+              {filteredListings.length === 0 ? (
+                <div class="empty-market">
+                  <span class="empty-icon">🧺</span>
+                  <p>Hiện chưa có ai bày bán mặt hàng này.</p>
+                  <p class="muted tiny">Bạn có thể sang tab "Sạp Của Tôi" để đăng bán đầu tiên!</p>
+                </div>
+              ) : (
+                filteredListings.map((item) => {
+                  const isMine = item.sellerName === me?.name;
+                  const it = LIFE_ITEMS[item.key];
+                  return (
+                    <div key={item.id} class="market-item-row">
+                      <span class="market-item-icon">{item.icon || it?.icon || '📦'}</span>
+                      <div class="market-item-info">
+                        <div class="market-item-name">
+                          <b>{item.name}</b>
+                          <span class="market-qty-badge">x{item.qty} {unitOf(item.key)}</span>
+                        </div>
+                        <div class="market-item-meta">
+                          <span class="seller-name">Người bán: <b>{item.sellerName}</b></span>
+                        </div>
+                      </div>
+                      <div class="market-price-box">
+                        <div class="unit-price"><b>{item.unitPrice}</b> <span class="gold-icon">💰</span>/cái</div>
+                        {isMine ? (
+                          <button class="btn warn small" onClick={() => marketCancel(item.id)}>Hủy bán</button>
+                        ) : (
+                          <button
+                            class="btn primary small"
+                            disabled={(me?.gold ?? 0) < item.unitPrice}
+                            onClick={() => handleOpenBuy(item)}
+                          >
+                            Mua hàng
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal mua hàng */}
+            {buyTarget && (
+              <div class="buy-dialog-backdrop" onClick={() => setBuyTarget(null)}>
+                <div class="buy-dialog" onClick={(e) => e.stopPropagation()}>
+                  <div class="dlg-header">
+                    <b>Mua {buyTarget.name}</b>
+                    <button class="icon-btn small" onClick={() => setBuyTarget(null)}>✕</button>
+                  </div>
+                  <div class="buy-dialog-body">
+                    <p class="muted tiny">Từ người bán: <b>{buyTarget.sellerName}</b></p>
+                    <div class="buy-qty-selector">
+                      <span class="lbl">Số lượng muốn mua:</span>
+                      <div class="counter-box">
+                        <button class="btn ghost small" onClick={() => setBuyQty(Math.max(1, buyQty - 1))}>-</button>
+                        <input
+                          type="number"
+                          class="input qty-input"
+                          min="1"
+                          max={buyTarget.qty}
+                          value={buyQty}
+                          onInput={(e) => setBuyQty(Math.max(1, Math.min(buyTarget.qty, parseInt((e.target as HTMLInputElement).value) || 1)))}
+                        />
+                        <button class="btn ghost small" onClick={() => setBuyQty(Math.min(buyTarget.qty, buyQty + 1))}>+</button>
+                        <button class="btn ghost small" onClick={() => setBuyQty(buyTarget.qty)}>Tất cả ({buyTarget.qty})</button>
+                      </div>
+                    </div>
+                    <div class="buy-total-calc">
+                      <span>Tổng số tiền:</span>
+                      <b class="total-gold">{buyQty * buyTarget.unitPrice} 💰 Vàng</b>
+                    </div>
+                    {(me?.gold ?? 0) < buyQty * buyTarget.unitPrice && (
+                      <p class="field-err">Bạn không đủ vàng để mua số lượng này!</p>
+                    )}
+                  </div>
+                  <div class="dlg-actions">
+                    <button class="btn ghost" onClick={() => setBuyTarget(null)}>Hủy</button>
+                    <button
+                      class="btn primary"
+                      disabled={(me?.gold ?? 0) < buyQty * buyTarget.unitPrice}
+                      onClick={handleConfirmBuy}
+                    >
+                      Xác nhận mua ({buyQty * buyTarget.unitPrice} vàng)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 2: Cô Hàng Chợ (NPC Cô Mơ) */}
+        {tab === 'npc' && (
+          <div class="market-body">
+            {/* Banner sự kiện giá */}
+            <div class="event-banner">
+              <div class="event-head">
+                <span class="event-tag">📢 CHỢ PHIÊN HÔM NAY</span>
+                <b>{event.title}</b>
+              </div>
+              <p class="event-desc">{event.desc}</p>
+              <div class="boost-tags">
+                {Object.entries(event.multipliers).map(([k, mult]) => (
+                  <span key={k} class="boost-chip">
+                    {LIFE_ITEMS[k]?.icon} {LIFE_ITEMS[k]?.name ?? k}: <b>+{Math.round((mult - 1) * 100)}% giá</b>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Gian hàng nông cụ đặc sản của Cô Mơ */}
+            <div class="market-section-title">
+              <b>🛍️ Nông Cụ & Con Giống Đặc Sản (Cô Mơ bán)</b>
+            </div>
+            <div class="co-mo-goods">
+              {CO_MO_SHOP.map((it) => {
+                const itemDef = LIFE_ITEMS[it.key];
+                return (
+                  <div key={it.key} class="shop-row">
+                    <span class="ct-icon">{itemDef?.icon ?? '✨'}</span>
+                    <div class="grow">
+                      <b>{it.name}</b>
+                      <div class="muted tiny">{it.desc}</div>
+                    </div>
+                    <button
+                      class="btn primary small"
+                      disabled={(me?.gold ?? 0) < it.price}
+                      onClick={() => npcMarketBuy(it.key, 1)}
+                    >
+                      Mua ({it.price} vàng)
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Thu mua nông sản sốt giá */}
+            <div class="market-section-title" style={{ marginTop: '14px' }}>
+              <b>🌾 Thu Mua Nông Sản Sốt Giá (Từ Giỏ Tre Của Bạn)</b>
+            </div>
+            <div class="sell-list">
+              {Object.entries(bag).filter(([k, q]) => (q ?? 0) > 0 && (LIFE_ITEMS[k]?.sell ?? 0) > 0).length === 0 ? (
+                <p class="muted tiny">Giỏ Tre của bạn đang trống, hãy canh tác hoặc câu cá rồi đem ra chợ nhé!</p>
+              ) : (
+                Object.entries(bag)
+                  .filter(([k, q]) => (q ?? 0) > 0 && (LIFE_ITEMS[k]?.sell ?? 0) > 0)
+                  .map(([k, q]) => {
+                    const itemDef = LIFE_ITEMS[k];
+                    const price = getMarketSellPrice(k, me?.life.soldToday ?? 0, Date.now());
+                    const mult = event.multipliers[k] ?? 1.0;
+                    return (
+                      <div key={k} class="shop-row">
+                        <span class="ct-icon">{itemDef?.icon}</span>
+                        <div class="grow">
+                          <b>{itemDef?.name}</b> <span class="muted tiny">x{q}</span>
+                          {mult > 1 && <span class="badge growing" style={{ marginLeft: '6px' }}>🔥 +{Math.round((mult - 1) * 100)}% sốt giá</span>}
+                          <div class="muted tiny">{price} vàng/{unitOf(k)}</div>
+                        </div>
+                        <div class="row-btns">
+                          <button class="btn ghost small" onClick={() => sellBag(k, 1)}>Bán 1</button>
+                          {q > 1 && <button class="btn primary small" onClick={() => sellBag(k, q)}>Bán hết ({q * price}v)</button>}
+                        </div>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tab 3: Sạp Của Tôi */}
+        {tab === 'my' && (
+          <div class="market-body">
+            {/* Hòm tiền doanh thu bán hàng */}
+            <div class="earnings-box">
+              <div class="eb-left">
+                <span class="eb-icon">💰</span>
+                <div>
+                  <div class="tiny muted">Hòm tiền doanh thu bán hàng:</div>
+                  <b class="eb-gold">{earnings} Vàng</b>
+                </div>
+              </div>
+              <button
+                class="btn primary"
+                disabled={earnings <= 0}
+                onClick={marketClaim}
+              >
+                Nhận tiền về túi ✨
+              </button>
+            </div>
+
+            {/* Bày sạp tại chỗ */}
+            <div class="stall-setup-box">
+              <div class="stall-title-row">
+                <b>🎪 Bày Sạp Tại Chỗ (Chợ Làng Tre)</b>
+              </div>
+              <p class="muted tiny">
+                Trải chiếu cói mở sạp riêng tại vị trí đứng của bạn. Người chơi khác có thể bấm vào sạp của bạn để mua đồ trực tiếp. Di chuyển sẽ tự động gập sạp.
+              </p>
+              <div class="stall-action-row">
+                <input
+                  class="input small"
+                  value={stallName}
+                  maxLength={30}
+                  placeholder="Tên biển hiệu sạp hàng…"
+                  onInput={(e) => setStallName((e.target as HTMLInputElement).value)}
+                />
+                <button
+                  class="btn primary small"
+                  onClick={() => stallSet(true, stallName.trim() || `Sạp của ${me?.name}`)}
+                >
+                  Trải chiếu mở sạp 🎪
+                </button>
+                <button
+                  class="btn ghost small"
+                  onClick={() => stallSet(false)}
+                >
+                  Gập sạp ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Form đăng bán ký gửi mới */}
+            <div class="create-listing-box">
+              <div class="section-title">
+                <b>📦 Đăng Bán Hàng Lên Chợ Ký Gửi</b>
+              </div>
+              {tradableBagItems.length === 0 ? (
+                <p class="muted tiny">Trong Giỏ Tre không có vật phẩm nào để đăng bán.</p>
+              ) : (
+                <form class="listing-form" onSubmit={handleCreateListing}>
+                  <div class="form-row">
+                    <label class="lbl tiny">Chọn vật phẩm:</label>
+                    <select
+                      class="input small"
+                      value={sellKey}
+                      onChange={(e) => {
+                        const k = (e.target as HTMLSelectElement).value;
+                        setSellKey(k);
+                        setSellQty(1);
+                        setSellPrice(LIFE_ITEMS[k]?.sell ? LIFE_ITEMS[k].sell * 2 : 10);
+                      }}
+                    >
+                      <option value="">-- Chọn món hàng trong giỏ --</option>
+                      {tradableBagItems.map(([k, q]) => (
+                        <option key={k} value={k}>
+                          {LIFE_ITEMS[k]?.icon} {LIFE_ITEMS[k]?.name} (có {q} {unitOf(k)})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {sellKey && (
+                    <>
+                      <div class="form-row-duo">
+                        <div>
+                          <label class="lbl tiny">Số lượng bán (tối đa {bag[sellKey] ?? 1}):</label>
+                          <input
+                            type="number"
+                            class="input small"
+                            min="1"
+                            max={bag[sellKey] ?? 1}
+                            value={sellQty}
+                            onInput={(e) => setSellQty(Math.max(1, Math.min(bag[sellKey] ?? 1, parseInt((e.target as HTMLInputElement).value) || 1)))}
+                          />
+                        </div>
+                        <div>
+                          <label class="lbl tiny">Giá bán mỗi đơn vị (vàng):</label>
+                          <input
+                            type="number"
+                            class="input small"
+                            min="1"
+                            max="9999"
+                            value={sellPrice}
+                            onInput={(e) => setSellPrice(Math.max(1, parseInt((e.target as HTMLInputElement).value) || 1))}
+                          />
+                        </div>
+                      </div>
+                      <div class="listing-preview-row">
+                        <span class="muted tiny">Thành tiền dự kiến: <b>{sellQty * sellPrice} vàng</b></span>
+                        <button class="btn primary small" type="submit">Đăng bán lên chợ 🚀</button>
+                      </div>
+                    </>
+                  )}
+                </form>
+              )}
+            </div>
+
+            {/* Các mặt hàng bạn đang rao bán */}
+            <div class="my-active-listings">
+              <div class="section-title">
+                <b>📜 Mặt Hàng Bạn Đang Rao Bán ({myListingItems.length})</b>
+              </div>
+              {myListingItems.length === 0 ? (
+                <p class="muted tiny">Bạn chưa đăng bán mặt hàng nào.</p>
+              ) : (
+                myListingItems.map((item) => (
+                  <div key={item.id} class="market-item-row">
+                    <span class="market-item-icon">{item.icon}</span>
+                    <div class="market-item-info">
+                      <b>{item.name}</b>
+                      <div class="muted tiny">Còn lại: x{item.qty} {unitOf(item.key)} · Giá: {item.unitPrice} 💰/cái</div>
+                    </div>
+                    <button class="btn warn small" onClick={() => marketCancel(item.id)}>
+                      Thu hồi về giỏ
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
         <div class="dlg-actions">
           <button class="btn ghost" onClick={close}>Đóng</button>
         </div>

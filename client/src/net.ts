@@ -101,6 +101,18 @@ export class Net {
         }));
         break;
       }
+      case 'market_data': {
+        store.set({
+          marketData: {
+            listings: msg.listings,
+            myEarnings: msg.myEarnings,
+            mySales: msg.mySales,
+            event: msg.event,
+          },
+          marketOpen: true,
+        });
+        break;
+      }
       case 'snap': {
         const mine = msg.p.find((p) => p.id === store.get().myId);
         if (mine) {

@@ -8,6 +8,7 @@ import { NPCS, SHOP_PRICES, TRIVIA_QUESTIONS } from '../../shared/story.ts';
 import type { ServerMsg } from '../../shared/protocol.ts';
 import { LIFE_ITEMS, SELL_DAILY_CAP, BAY_PRICE, fishSpotAt, normalizeLife, trapSpotOk } from '../../shared/life.ts';
 import { TRIVIA_ANSWERS } from '../src/trivia.ts';
+import { MarketManager } from '../src/market.ts';
 
 function seeded(seed = 42) {
   let a = seed;
@@ -1219,6 +1220,85 @@ test('canh nông: khi ở ngoài Vườn Nhà (ví dụ Làng Tre) thì không t
   w.handle(id, { t: 'farm_mill', crop: 'giong_te' });
   assert.equal(p.prof.life!.bag.thoc, 4, 'không thể xay thóc ngoài vườn nhà');
 });
+
+test('Chợ Phiên Làng Tre: NPC Cô Mơ mua bán nông cụ, ký gửi hàng hoá giữa người chơi, thu tiền bán', () => {
+  const market = new MarketManager();
+  const w = new World({
+    rnd: seeded(),
+    mapId: 'lang_tre',
+    now: () => DAY,
+    market,
+  });
+
+  // Người bán Tý và người mua Tèo
+  const idTy = w.addPlayer(World.newProfile('token_ty', 'Bé Tý', 'warrior'));
+  const idTeo = w.addPlayer(World.newProfile('token_teo', 'Bé Tèo', 'archer'));
+  const pTy = w.debugPlayer(idTy)!;
+  const pTeo = w.debugPlayer(idTeo)!;
+
+  // Đứng gần Cô Mơ (x=680, y=1550)
+  pTy.x = 680; pTy.y = 1550;
+  pTeo.x = 680; pTeo.y = 1550;
+
+  // 1. Mua nông cụ từ Cô Mơ: Cần trúc ngà (60 vàng)
+  pTy.prof.gold = 100;
+  w.handle(idTy, { t: 'npc_market_buy', key: 'can_cau_truc' });
+  assert.equal(pTy.prof.gold, 40, 'trừ đúng 60 vàng');
+  assert.equal(pTy.prof.life!.bag.can_cau_truc, 1, 'nhận được cần trúc ngà');
+
+  // 2. Ký gửi 3 Cá chép lên chợ với giá 20 vàng / con
+  pTy.prof.life!.bag.ca_chep = 5;
+  w.handle(idTy, { t: 'market_sell', key: 'ca_chep', qty: 3, unitPrice: 20 });
+  assert.equal(pTy.prof.life!.bag.ca_chep, 2, 'trừ 3 cá chép từ giỏ');
+  const listings = market.getListings();
+  assert.equal(listings.length, 1, 'có 1 đơn ký gửi');
+  assert.equal(listings[0].name, 'Cá chép');
+  assert.equal(listings[0].qty, 3);
+  assert.equal(listings[0].unitPrice, 20);
+
+  // 3. Người mua Tèo mua 2 con cá chép
+  pTeo.prof.gold = 100;
+  const listingId = listings[0].id;
+  w.handle(idTeo, { t: 'market_buy', id: listingId, qty: 2 });
+  assert.equal(pTeo.prof.gold, 60, 'Tèo trả 40 vàng');
+  assert.equal(pTeo.prof.life!.bag.ca_chep, 2, 'Tèo nhận 2 cá chép');
+  assert.equal(listings[0].qty, 1, 'đơn hàng còn lại 1 con');
+
+  // 4. Tý nhận được tiền bán hàng
+  assert.equal(market.getPendingEarnings('token_ty'), 40, 'doanh thu 40 vàng');
+  w.handle(idTy, { t: 'market_claim' });
+  assert.equal(pTy.prof.gold, 80, 'Tý đã nhận 40 vàng (40 + 40 = 80)');
+  assert.equal(market.getPendingEarnings('token_ty'), 0, 'hết tiền chờ');
+
+  // 5. Tý rút đơn hàng còn lại về giỏ
+  w.handle(idTy, { t: 'market_cancel', id: listingId });
+  assert.equal(market.getListings().length, 0, 'đơn đã rút');
+  assert.equal(pTy.prof.life!.bag.ca_chep, 3, 'cá chép hoàn về giỏ (2 + 1 = 3)');
+});
+
+test('Bày sạp tại chỗ (stall) ở Chợ Làng: mở sạp, hiển thị snapshot, di chuyển tự gập sạp', () => {
+  const w = new World({ rnd: seeded(), mapId: 'lang_tre', now: () => DAY });
+  const id = w.addPlayer(World.newProfile('t_stall', 'Bác Bán Cá', 'warrior'));
+  const p = w.debugPlayer(id)!;
+  p.x = 680; p.y = 1550; // an toàn trong làng
+
+  // Mở sạp
+  w.handle(id, { t: 'stall_set', open: true, name: 'Sạp Cá Tươi Cô Mơ' });
+  assert.ok(p.stall && p.stall.open, 'sạp đã mở');
+  assert.equal(p.stall?.name, 'Sạp Cá Tươi Cô Mơ');
+
+  // Snapshot có stall
+  const snaps = w.buildSnapshots();
+  const ps = snaps[0].msg as any;
+  const snap = ps.p.find((x: any) => x.id === id);
+  assert.equal(snap?.stall, 'Sạp Cá Tươi Cô Mơ', 'snapshot có tên sạp');
+
+  // Người chơi bước đi -> sạp tự gập
+  w.handle(id, { t: 'in', seq: 1, x: 1, y: 0 });
+  w.tick();
+  assert.equal(p.stall, null, 'sạp tự gập lại khi di chuyển');
+});
+
 
 
 

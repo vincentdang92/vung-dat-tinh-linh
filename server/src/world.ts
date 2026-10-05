@@ -24,9 +24,11 @@ import {
   pickIngredients, fishSpotAt, rollFish, tugsFor, isNight, vnDay, lifeLevel, normalizeLife, unitSellPrice,
   CRITTER_LOOT, CATCH_NAME, HUNT, BAY_PRICE, rollTrap, trapSpotOk,
   FARM, FOLK_CHEERS, defaultFarm, updateFarmPlots, updateFarmChickens,
+  CO_MO_SHOP, getTodayMarketEvent, getMarketSellPrice,
 } from '../../shared/life.ts';
 import type { FishSpot, LifeData, LifeSkill, CropKind, FarmData, FarmVisitSelf } from '../../shared/life.ts';
 import { TRIVIA_ANSWERS, TRIVIA_REWARD } from './trivia.ts';
+import type { MarketManager } from './market.ts';
 
 export interface Profile {
   token: string;
@@ -95,6 +97,7 @@ export interface Player {
   eatReady: number;
   khiAcc: number; // tích luỹ Khí lẻ từ buff Cá kho tộ
   visitingFarm: string | null;
+  stall: { open: boolean; name: string } | null;
 }
 
 /** Yêu cầu chuyển người chơi sang bản đồ khác (Realm xử lý sau mỗi tick). */
@@ -181,6 +184,8 @@ export class World {
   onSave: (p: Profile) => void = () => {};
   onFindTargetFarm?: (name: string) => { player?: Player; farm: FarmData; farmLv: number; markDirty: () => void } | null;
   onGetOnlineFarmers?: () => { name: string; farmLv: number; likes: number }[];
+  market?: MarketManager;
+  onFindPlayerByToken?: (token: string) => Player | undefined;
 
   /**
    * Mỗi bản đồ một World. `ids` dùng chung giữa các World (Realm cấp) để id người chơi,
@@ -191,6 +196,8 @@ export class World {
     mapId?: MapId;
     ids?: () => number;
     now?: () => number;
+    market?: MarketManager;
+    onFindPlayerByToken?: (token: string) => Player | undefined;
     onFindTargetFarm?: (name: string) => { player?: Player; farm: FarmData; farmLv: number; markDirty: () => void } | null;
     onGetOnlineFarmers?: () => { name: string; farmLv: number; likes: number }[];
   } = {}) {
@@ -198,6 +205,8 @@ export class World {
     this.ids = opts.ids ?? (() => this.nextId++);
     this.now = opts.now ?? Date.now;
     this.mapId = opts.mapId ?? 'lang_tre';
+    this.market = opts.market;
+    this.onFindPlayerByToken = opts.onFindPlayerByToken;
     this.onFindTargetFarm = opts.onFindTargetFarm;
     this.onGetOnlineFarmers = opts.onGetOnlineFarmers;
     this.map = buildMap(this.mapId);
@@ -250,6 +259,7 @@ export class World {
       eatReady: 0,
       khiAcc: 0,
       visitingFarm: null,
+      stall: null,
     };
     this.players.set(id, p);
     this.sys(`${prof.name} đã vào game`);
@@ -289,9 +299,10 @@ export class World {
       p.nextAtk += dt; p.lastCombat += dt; p.lastChat += dt; p.respawnAt += dt; p.waterVortexUntil += dt;
       p.slowUntil += dt; p.eatReady += dt;
     }
-    // qua cổng là thu cần, bỏ dở nồi đang nấu
+    // qua cổng là thu cần, bỏ dở nồi đang nấu, gập sạp hàng
     p.fish = null;
     p.cooking = null;
+    p.stall = null;
     p.x = x; p.y = y;
     p.queue.length = 0;
     p.vortexCooldowns.clear();
@@ -359,6 +370,14 @@ export class World {
       case 'coop_clean': this.coopClean(p); break;
       case 'farm_visit': this.farmVisit(p, String(msg.name ?? '')); break;
       case 'farm_cheer': this.farmCheer(p, String(msg.target ?? ''), String(msg.text ?? '')); break;
+      // ---- Chợ Phiên & Giao Thương ----
+      case 'market_get': this.marketGet(p); break;
+      case 'market_sell': this.marketSell(p, String(msg.key), Math.floor(Number(msg.qty)), Math.floor(Number(msg.unitPrice))); break;
+      case 'market_buy': this.marketBuy(p, String(msg.id), Math.floor(Number(msg.qty))); break;
+      case 'market_cancel': this.marketCancel(p, String(msg.id)); break;
+      case 'market_claim': this.marketClaim(p); break;
+      case 'npc_market_buy': this.npcMarketBuy(p, String(msg.key), Math.floor(Number(msg.qty ?? 1))); break;
+      case 'stall_set': this.stallSet(p, Boolean(msg.open), msg.name ? String(msg.name).slice(0, 30) : undefined); break;
       case 'chat': {
         const text = String(msg.text ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 120);
         if (!text || this.t - p.lastChat < 800) return;
@@ -472,9 +491,11 @@ export class World {
     const sp = fishSpotAt(this.map, p.x, p.y, PLAYER_RADIUS);
     if (!sp) { this.tell(p, 'Hãy đứng sát mép nước để thả câu'); return; }
     const lv = this.lifeLv(p, 'fish');
-    // Ngồi câu cùng bạn: cá cắn nhanh hơn
+    // Ngồi câu cùng bạn: cá cắn nhanh hơn. Dùng Cần Trúc Ngà: cắn nhanh hơn 35%
     const social = this.othersNear(p, FISH.socialR, (o) => !!o.fish);
-    const delay = (FISH.biteMin + this.rnd() * (FISH.biteMax - FISH.biteMin)) * (social ? FISH.socialMult : 1) * (1 - 0.02 * (lv - 1));
+    const hasTrucRod = bagCount(this.life(p).bag, 'can_cau_truc') > 0;
+    const rodMult = hasTrucRod ? 0.65 : 1;
+    const delay = (FISH.biteMin + this.rnd() * (FISH.biteMax - FISH.biteMin)) * (social ? FISH.socialMult : 1) * (1 - 0.02 * (lv - 1)) * rodMult;
     const catchKey = rollFish(sp.spot, lv, isNight(this.now()), this.rnd);
     p.fish = {
       spot: sp.spot, bx: sp.x, by: sp.y, px: p.x, py: p.y, castAt: this.t,
@@ -647,7 +668,10 @@ export class World {
   }
 
   private sellBag(p: Player, key: string, qty: number) {
-    if (!this.nearNpc(p, 'nuoc', 85) && !this.nearNpc(p, 'do', 85)) { this.tell(p, 'Hãy lại gần Bà Hàng Nước hoặc Bác Lái Đò'); return; }
+    if (!this.nearNpc(p, 'nuoc', 85) && !this.nearNpc(p, 'do', 85) && !this.nearNpc(p, 'mo', 85)) {
+      this.tell(p, 'Hãy lại gần Cô Mơ, Bà Hàng Nước hoặc Bác Lái Đò');
+      return;
+    }
     const item = LIFE_ITEMS[key];
     const life = this.life(p);
     if (!item || !(qty > 0)) return;
@@ -656,13 +680,15 @@ export class World {
     if (item.sell <= 0) { this.tell(p, `${item.name} chẳng ai mua cả`); return; }
     const day = vnDay(this.now());
     if (!life.sold || life.sold.day !== day) life.sold = { day, gold: 0 };
+    const evt = getTodayMarketEvent(this.now());
+    const hasBonus = (evt.multipliers[key] ?? 1.0) > 1.0;
     let gold = 0;
-    for (let i = 0; i < qty; i++) gold += unitSellPrice(key, life.sold.gold + gold);
+    for (let i = 0; i < qty; i++) gold += getMarketSellPrice(key, life.sold.gold + gold, this.now());
     bagTake(life.bag, key, qty);
     p.prof.gold += gold;
     life.sold.gold += gold;
     const capped = life.sold.gold >= SELL_DAILY_CAP;
-    this.tell(p, `Đã bán ${qty} ${item.name} (+${gold} vàng)${capped ? '. Hôm nay bán nhiều rồi, thương lái chỉ trả 1/4 giá' : ''}`);
+    this.tell(p, `Đã bán ${qty} ${item.name} (+${gold} vàng)${hasBonus ? ` [Ưu đãi Chợ Phiên: ${evt.title}]` : ''}${capped ? '. Hôm nay bán nhiều rồi, thương lái chỉ trả 1/4 giá' : ''}`);
     p.meDirty = true; p.saveDirty = true;
   }
 
@@ -861,8 +887,10 @@ export class World {
     if (this.mapId !== 'vuon_nha') { this.tell(p, 'Hãy về Vườn Nhà để bón phân cho ruộng!'); return; }
     if (!Number.isInteger(plotId) || plotId < 0 || plotId >= FARM.plotCount) return;
     const bag = this.life(p).bag;
-    if (bagCount(bag, 'phan_ga') < 1) {
-      this.tell(p, 'Cần 1 Phân chuồng hoai mục (dọn từ chuồng gà)');
+    const hasSuper = bagCount(bag, 'phan_bon_rong') >= 1;
+    const hasNormal = bagCount(bag, 'phan_ga') >= 1;
+    if (!hasSuper && !hasNormal) {
+      this.tell(p, 'Cần 1 Phân chuồng hoai mục (dọn từ chuồng gà) hoặc Phân trùn quế (Chợ Phiên)');
       return;
     }
     const farm = this.farm(p);
@@ -871,14 +899,23 @@ export class World {
       this.tell(p, 'Chỉ bón phân cho đất đã cuốc hoặc đang trồng');
       return;
     }
-    if (plot.fertilized) {
-      this.tell(p, 'Ô đất này đã được bón lót phân');
+    if (plot.fertilized && (!hasSuper || plot.superFertilized)) {
+      this.tell(p, 'Ô đất này đã được bón phân tốt nhất');
       return;
     }
-    bagTake(bag, 'phan_ga', 1);
-    plot.fertilized = true;
-    this.gainLifeXp(p, 'farm', 2);
-    this.tell(p, `Đã bón phân chuồng cho ô ${plotId + 1} (+25% sản lượng thóc khi gặt)!`);
+    if (hasSuper) {
+      bagTake(bag, 'phan_bon_rong', 1);
+      plot.fertilized = true;
+      plot.superFertilized = true;
+      if (plot.progress != null) plot.progress = Math.min(1, plot.progress + 0.35);
+      this.gainLifeXp(p, 'farm', 6);
+      this.tell(p, `Đã bón Phân Trùn Quế cho ô ${plotId + 1}! Lúa lớn nhanh thần tốc (+40% sản lượng khi gặt)!`);
+    } else {
+      bagTake(bag, 'phan_ga', 1);
+      plot.fertilized = true;
+      this.gainLifeXp(p, 'farm', 2);
+      this.tell(p, `Đã bón phân chuồng cho ô ${plotId + 1} (+25% sản lượng thóc khi gặt)!`);
+    }
     p.meDirty = true; p.saveDirty = true;
   }
 
@@ -894,7 +931,8 @@ export class World {
       return;
     }
     const info = FARM.crops[plot.crop];
-    const yieldQty = plot.fertilized ? Math.round(info.yieldQty * 1.25) : info.yieldQty;
+    const mult = plot.superFertilized ? 1.4 : (plot.fertilized ? 1.25 : 1);
+    const yieldQty = Math.round(info.yieldQty * mult);
     const strawQty = info.strawQty;
     const bag = this.life(p).bag;
     if (!bagCanAdd(bag, info.yieldKey, yieldQty) || !bagCanAdd(bag, 'rom', strawQty)) {
@@ -908,6 +946,7 @@ export class World {
     delete plot.progress;
     delete plot.waterUntil;
     delete plot.fertilized;
+    delete plot.superFertilized;
     delete plot.pest;
     delete plot.lastUpdate;
     this.gainLifeXp(p, 'farm', info.xp);
@@ -939,6 +978,16 @@ export class World {
       bagAdd(bag, 'cam_gao', 1);
       this.gainLifeXp(p, 'farm', 5);
       this.tell(p, 'Cối đá xay xát: Nhận 2 Gạo nếp cái hoa vàng và 1 Cám gạo!');
+    } else if (crop === 'giong_tam_thom') {
+      if (bagCount(bag, 'thoc_tam_thom') < 2) { this.tell(p, 'Cần ít nhất 2 Thóc Tám Thơm để xay cối đá'); return; }
+      const after = { ...bag };
+      bagTake(after, 'thoc_tam_thom', 2);
+      if (!bagCanAdd(after, 'gao_tam_thom', 2) || !bagCanAdd(after, 'cam_gao', 1)) { this.tell(p, 'Giỏ Tre đầy'); return; }
+      bagTake(bag, 'thoc_tam_thom', 2);
+      bagAdd(bag, 'gao_tam_thom', 2);
+      bagAdd(bag, 'cam_gao', 1);
+      this.gainLifeXp(p, 'farm', 6);
+      this.tell(p, 'Cối đá xay xát: Nhận 2 Gạo Tám Thơm đặc sản và 1 Cám gạo!');
     }
     p.meDirty = true; p.saveDirty = true;
   }
@@ -1092,6 +1141,122 @@ export class World {
     this.gainLifeXp(p, 'farm', 2);
     p.prof.gold += 1;
     this.tell(p, `Đã thả tim và gửi lời chúc đến ${targetName}! (+2 XP Canh nông, +1 vàng)`);
+    p.meDirty = true;
+  }
+
+  // ------------------------------------------------------------ Chợ Phiên & Giao Thương
+
+  private marketGet(p: Player) {
+    if (!this.market) return;
+    const listings = this.market.getListings();
+    const myEarnings = this.market.getPendingEarnings(p.prof.token);
+    const mySales = this.market.getSalesHistory(p.prof.token);
+    const event = getTodayMarketEvent(this.now());
+    this.outbox.push({
+      to: p.id,
+      msg: {
+        t: 'market_data',
+        listings,
+        myEarnings,
+        mySales,
+        event,
+      },
+    });
+  }
+
+  private marketSell(p: Player, key: string, qty: number, unitPrice: number) {
+    if (!this.market) return;
+    const res = this.market.createListing(p, key, qty, unitPrice);
+    this.tell(p, res.msg);
+    if (res.ok) {
+      p.meDirty = true; p.saveDirty = true;
+      this.marketGet(p);
+      this.sys(`[Chợ Phiên] ${p.prof.name} vừa ký gửi ${qty} ${LIFE_ITEMS[key]?.name ?? key} lên Chợ Làng!`);
+    }
+  }
+
+  private marketBuy(p: Player, id: string, qty: number) {
+    if (!this.market) return;
+    const res = this.market.buyListing(
+      p,
+      id,
+      qty,
+      (token) => (this.onFindPlayerByToken ? this.onFindPlayerByToken(token) : undefined),
+    );
+    this.tell(p, res.msg);
+    if (res.ok) {
+      p.meDirty = true; p.saveDirty = true;
+      this.marketGet(p);
+      if (res.sellerToken) {
+        const seller = this.onFindPlayerByToken ? this.onFindPlayerByToken(res.sellerToken) : undefined;
+        if (seller) {
+          this.tell(seller, `[Chợ Phiên] ${p.prof.name} đã mua ${res.qtyBought} ${res.itemName} (+${res.totalGold} Vàng)!`);
+        }
+      }
+    }
+  }
+
+  private marketCancel(p: Player, id: string) {
+    if (!this.market) return;
+    const res = this.market.cancelListing(p, id);
+    this.tell(p, res.msg);
+    if (res.ok) {
+      p.meDirty = true; p.saveDirty = true;
+      this.marketGet(p);
+    }
+  }
+
+  private marketClaim(p: Player) {
+    if (!this.market) return;
+    const res = this.market.claimEarnings(p);
+    this.tell(p, res.msg);
+    if (res.claimed > 0) {
+      p.meDirty = true; p.saveDirty = true;
+      this.marketGet(p);
+    }
+  }
+
+  private npcMarketBuy(p: Player, key: string, qty = 1) {
+    if (!this.nearNpc(p, 'mo', 85)) {
+      this.tell(p, 'Hãy lại gần Cô Mơ tại Chợ Làng Tre để mua nông cụ!');
+      return;
+    }
+    const item = CO_MO_SHOP.find((i) => i.key === key);
+    if (!item) {
+      this.tell(p, 'Mặt hàng không có trong sạp của Cô Mơ');
+      return;
+    }
+    qty = Math.max(1, Math.min(20, Math.floor(qty)));
+    const totalCost = item.price * qty;
+    if (p.prof.gold < totalCost) {
+      this.tell(p, `Không đủ vàng (cần ${totalCost} vàng, bạn có ${p.prof.gold} vàng)`);
+      return;
+    }
+    const bag = this.life(p).bag;
+    if (!bagCanAdd(bag, key, qty)) {
+      this.tell(p, 'Giỏ Tre đã đầy');
+      return;
+    }
+    p.prof.gold -= totalCost;
+    bagAdd(bag, key, qty);
+    this.tell(p, `Đã mua ${qty} ${item.name} từ Cô Mơ (-${totalCost} vàng)!`);
+    p.meDirty = true; p.saveDirty = true;
+  }
+
+  private stallSet(p: Player, open: boolean, name?: string) {
+    if (open) {
+      if (this.mapId !== 'lang_tre' || !isSafe(this.map, p.x, p.y)) {
+        this.tell(p, 'Chỉ có thể bày sạp tại khu vực an toàn Làng Tre (sân chợ làng)!');
+        return;
+      }
+      const stallName = name ? name.trim().slice(0, 30) : `Sạp của ${p.prof.name}`;
+      p.stall = { open: true, name: stallName };
+      this.tell(p, `Bạn đã mở "${stallName}". Người khác có thể lại gần sạp để xem hàng.`);
+      this.sys(`[Chợ Phiên] ${p.prof.name} vừa dựng "${stallName}" tại Làng Tre!`);
+    } else {
+      p.stall = null;
+      this.tell(p, 'Bạn đã đóng sạp hàng.');
+    }
     p.meDirty = true;
   }
 
@@ -1464,6 +1629,15 @@ export class World {
         'Bà có bán bình máu bồi bổ (10 vàng) và thu mua vũ khí cũ giá tốt.',
         'Con cũng có thể thử tài trả lời Đố Vui Dân Gian để nhận lời chúc may mắn và hồi phục Khí nhé!',
       ], 1, false);
+    } else if (npcId === 'mo') {
+      const evt = getTodayMarketEvent(this.now());
+      this.dialogue(p, npcId, 'Cô Mơ', [
+        'Dạ em chào tráng sĩ! Em là Cô Mơ bán hàng xén ở Chợ Phiên Làng Tre đây ạ.',
+        `Hôm nay phiên chợ có sự kiện: "${evt.title}"! ${evt.desc}`,
+        'Em bán nông cụ đặc sản: Cần trúc ngà, Bẫy thép cải tiến, Phân trùn quế và Giống lúa Tám Thơm.',
+        'Tráng sĩ muốn mua sắm, bán nông sản lấy vàng hay ký gửi hàng hóa lên Chợ Làng thì cứ chọn ở sạp chợ nhé!',
+      ], 1, false);
+      this.marketGet(p);
     }
   }
 
@@ -2095,6 +2269,11 @@ export class World {
         p.bucket--;
         p.ack = Math.max(p.ack, inp.seq);
         if (p.dead) continue;
+        if (p.stall && (Math.abs(inp.x) > 0.05 || Math.abs(inp.y) > 0.05 || inp.dash)) {
+          p.stall = null;
+          p.meDirty = true;
+          this.tell(p, 'Bạn đã rời vị trí, sạp hàng đã được gập lại.');
+        }
         const canDash = t >= p.dashReady;
         const effSpeed = t < p.slowUntil ? p.stats.speed * 0.6 : p.stats.speed;
         if (applyInput(this.map, p, inp, effSpeed, canDash)) {
@@ -2332,6 +2511,7 @@ export class World {
       },
       visitFarm,
       onlineFarmers: this.onGetOnlineFarmers ? this.onGetOnlineFarmers() : undefined,
+      marketEarnings: this.market?.getPendingEarnings(p.prof.token) ?? 0,
     };
   }
 
@@ -2344,6 +2524,7 @@ export class World {
       slow: this.t < p.slowUntil ? (1 as const) : undefined,
       fb: p.fish ? [p.fish.bx, p.fish.by, p.fish.bitten ? 1 : 0] as [number, number, 0 | 1] : undefined,
       ck: p.cooking ? (1 as const) : undefined,
+      stall: p.stall?.open ? (p.stall.name || 'Sạp Hàng') : undefined,
     }));
     const ms: MobSnap[] = [];
     for (const m of this.mobs.values()) {

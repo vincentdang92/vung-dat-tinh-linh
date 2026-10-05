@@ -87,18 +87,27 @@ export function trapTake(id: number, force = false) { net?.send(force ? { t: 'tr
 
 // ---- Canh Nông & Thăm Vườn ----
 export function farmPlow(plot: number) { net?.send({ t: 'farm_plow', plot }); }
-export function farmPlant(plot: number, crop: 'giong_te' | 'giong_nep') { net?.send({ t: 'farm_plant', plot, crop }); }
+export function farmPlant(plot: number, crop: 'giong_te' | 'giong_nep' | 'giong_tam_thom') { net?.send({ t: 'farm_plant', plot, crop }); }
 export function farmWater(plot: number, target?: string) { net?.send({ t: 'farm_water', plot, target }); }
 export function farmWeed(plot: number, target?: string) { net?.send({ t: 'farm_weed', plot, target }); }
 export function farmFertilize(plot: number) { net?.send({ t: 'farm_fertilize', plot }); }
 export function farmHarvest(plot: number) { net?.send({ t: 'farm_harvest', plot }); }
-export function farmMill(crop: 'giong_te' | 'giong_nep') { net?.send({ t: 'farm_mill', crop }); }
+export function farmMill(crop: 'giong_te' | 'giong_nep' | 'giong_tam_thom') { net?.send({ t: 'farm_mill', crop }); }
 export function coopAdd() { net?.send({ t: 'coop_add' }); }
 export function coopFeed(item: 'thoc' | 'cam_gao') { net?.send({ t: 'coop_feed', item }); }
 export function coopCollect() { net?.send({ t: 'coop_collect' }); }
 export function coopClean() { net?.send({ t: 'coop_clean' }); }
 export function farmVisit(name: string) { net?.send({ t: 'farm_visit', name }); }
 export function farmCheer(target: string, text: string) { net?.send({ t: 'farm_cheer', target, text }); }
+
+// ---- Chợ Phiên & Giao Thương ----
+export function marketGet() { net?.send({ t: 'market_get' }); }
+export function marketSell(key: string, qty: number, unitPrice: number) { net?.send({ t: 'market_sell', key, qty, unitPrice }); }
+export function marketBuy(id: string, qty: number) { net?.send({ t: 'market_buy', id, qty }); }
+export function marketCancel(id: string) { net?.send({ t: 'market_cancel', id }); }
+export function marketClaim() { net?.send({ t: 'market_claim' }); }
+export function npcMarketBuy(key: string, qty = 1) { net?.send({ t: 'npc_market_buy', key, qty }); }
+export function stallSet(open: boolean, name?: string) { net?.send({ t: 'stall_set', open, name }); }
 
 window.addEventListener('rpg:skill', castSkill);
 window.addEventListener('rpg:ult', castUltimate);

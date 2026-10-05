@@ -5,7 +5,7 @@ import type { ClassId, Rarity } from './data.ts';
 import type { GameMap, MapId, MonsterKind } from './map.ts';
 import { moveWithCollision } from './map.ts';
 import { INPUT_DT, DASH_DIST, PLAYER_RADIUS } from './constants.ts';
-import type { LifeSelf, FarmVisitSelf } from './life.ts';
+import type { LifeSelf, FarmVisitSelf, CropKind, MarketListing, MarketSale, MarketEvent } from './life.ts';
 
 // ---------- Client -> Server ----------
 export interface InputMsg { t: 'in'; seq: number; x: number; y: number; dash?: 1 }
@@ -33,18 +33,26 @@ export type ClientMsg =
   | { t: 'trap_take'; id: number; force?: 1 } // thu bẫy (force: gỡ bẫy chưa sập)
   // ---- Canh Nông & Thăm Vườn ----
   | { t: 'farm_plow'; plot: number }
-  | { t: 'farm_plant'; plot: number; crop: 'giong_te' | 'giong_nep' }
+  | { t: 'farm_plant'; plot: number; crop: CropKind }
   | { t: 'farm_water'; plot: number; target?: string }
   | { t: 'farm_weed'; plot: number; target?: string }
   | { t: 'farm_fertilize'; plot: number }
   | { t: 'farm_harvest'; plot: number }
-  | { t: 'farm_mill'; crop: 'giong_te' | 'giong_nep' }
+  | { t: 'farm_mill'; crop: CropKind }
   | { t: 'coop_add' }
   | { t: 'coop_feed'; item: 'thoc' | 'cam_gao' }
   | { t: 'coop_collect' }
   | { t: 'coop_clean' }
   | { t: 'farm_visit'; name: string }
   | { t: 'farm_cheer'; target: string; text: string }
+  // ---- Chợ Phiên & Giao Thương ----
+  | { t: 'market_get' }
+  | { t: 'market_sell'; key: string; qty: number; unitPrice: number }
+  | { t: 'market_buy'; id: string; qty: number }
+  | { t: 'market_cancel'; id: string }
+  | { t: 'market_claim' }
+  | { t: 'npc_market_buy'; key: string; qty?: number }
+  | { t: 'stall_set'; open: boolean; name?: string }
   | { t: 'chat'; text: string }
   | { t: 'ping'; c: number };
 
@@ -57,6 +65,8 @@ export interface PlayerSnap {
   fb?: [number, number, 0 | 1];
   /** Đang nấu ăn. */
   ck?: 1;
+  /** Đang bày sạp hàng tại chỗ ở chợ làng (tên biển sạp). */
+  stall?: string;
 }
 export interface MobSnap {
   id: number; k: MonsterKind; x: number; y: number;
@@ -94,6 +104,7 @@ export interface SelfState {
   life: LifeSelf; // Nghề Sống: cấp nghề, Giỏ Tre, buff ăn uống, nông trại
   visitFarm?: FarmVisitSelf | null;
   onlineFarmers?: { name: string; farmLv: number; likes: number }[];
+  marketEarnings?: number; // Tiền vàng bán hàng chợ phiên chờ nhận
 }
 
 /** Diễn biến câu cá gửi riêng cho người câu (để bấm "Giật!" đúng lúc). */
@@ -114,6 +125,8 @@ export type ServerMsg =
   | { t: 'gain'; how: 'hunt' | 'trap'; key: string; qty: number; extra?: string }
   // Nông trại: thăm vườn người chơi khác
   | { t: 'farm_visit'; farm: FarmVisitSelf | null }
+  // Chợ phiên: dữ liệu chợ ký gửi & sự kiện giá
+  | { t: 'market_data'; listings: MarketListing[]; myEarnings: number; mySales: MarketSale[]; event: MarketEvent }
   // Đáp án chỉ gửi SAU khi đã trả lời (client không biết trước đáp án)
   | { t: 'trivia_result'; qId: number; ok: boolean; ans: number; exp: string; repeat?: 1 }
   | { t: 'pong'; c: number; st: number }

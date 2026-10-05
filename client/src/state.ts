@@ -4,6 +4,7 @@ import type { SelfState, FishStage } from '../../shared/protocol.ts';
 import type { ClassId } from '../../shared/data.ts';
 import type { AuthResult, CharacterSummary } from '../../shared/auth.ts';
 import type { MapId } from '../../shared/map.ts';
+import type { MarketListing, MarketSale, MarketEvent } from '../../shared/life.ts';
 
 export interface ChatLine { id: number; from?: string; text: string; sys?: boolean; at: number }
 
@@ -36,6 +37,15 @@ export interface UiState {
   triviaOpen: boolean;
   codexOpen: boolean;
   noticeOpen: boolean;
+  marketOpen: boolean;
+  marketData: {
+    listings: MarketListing[];
+    myEarnings: number;
+    mySales: MarketSale[];
+    event: MarketEvent;
+  } | null;
+  marketTab: 'browse' | 'npc' | 'my';
+  stallSellerToken: string | null;
   /** Kết quả câu đố vừa trả lời (đáp án server gửi về sau khi trả lời). */
   triviaResult: { qId: number; ok: boolean; ans: number; exp: string; repeat?: boolean } | null;
   /** Bảng Giỏ Tre / Bếp nấu ăn / Nông Trại. */
@@ -100,6 +110,7 @@ export const store = createStore<UiState>({
   me: null, hp: 1, maxHp: 1, dead: false, respawnAt: 0, ping: 0, online: 0,
   chat: [], invOpen: false, chatOpen: false, dialogue: null, shopOpen: false,
   triviaOpen: false, codexOpen: false, noticeOpen: false, nearNpc: null,
+  marketOpen: false, marketData: null, marketTab: 'browse', stallSellerToken: null,
   triviaResult: null, bagOpen: false, cookOpen: false, farmOpen: false, farmTab: 'my', shopNpc: 'nuoc',
   fishing: null, catchToast: null, cooking: null, buffUntil: 0, nearWater: false, cookPlace: null,
   nearTrap: null, canTrap: false, trapReady: {},

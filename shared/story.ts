@@ -67,6 +67,15 @@ export const NPCS: Record<string, NpcDef> = {
     y: 1504,
     color: 0xf472b6,
   },
+  mo: {
+    id: 'mo',
+    name: 'Cô Mơ',
+    title: 'Hàng xén Chợ Phiên',
+    mapId: 'lang_tre',
+    x: 680,
+    y: 1550,
+    color: 0xec4899,
+  },
 };
 
 export interface QuestStep {
