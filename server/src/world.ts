@@ -754,6 +754,7 @@ export class World {
 
   private farmPlow(p: Player, plotId: number) {
     if (p.dead) return;
+    if (this.mapId !== 'vuon_nha') { this.tell(p, 'Hãy về Vườn Nhà để cuốc xới đất!'); return; }
     if (!Number.isInteger(plotId) || plotId < 0 || plotId >= FARM.plotCount) return;
     const farm = this.farm(p);
     const plot = farm.plots[plotId];
@@ -770,6 +771,7 @@ export class World {
 
   private farmPlant(p: Player, plotId: number, crop: CropKind) {
     if (p.dead) return;
+    if (this.mapId !== 'vuon_nha') { this.tell(p, 'Hãy về Vườn Nhà để gieo giống lúa!'); return; }
     if (!Number.isInteger(plotId) || plotId < 0 || plotId >= FARM.plotCount) return;
     if (crop !== 'giong_te' && crop !== 'giong_nep') return;
     const bag = this.life(p).bag;
@@ -814,6 +816,7 @@ export class World {
       return;
     }
 
+    if (this.mapId !== 'vuon_nha') { this.tell(p, 'Hãy về Vườn Nhà để tưới nước cho lúa!'); return; }
     const farm = this.farm(p);
     const plot = farm.plots[plotId];
     if (!plot || plot.state !== 'planted') { this.tell(p, 'Ô đất này chưa trồng cây'); return; }
@@ -842,6 +845,7 @@ export class World {
       return;
     }
 
+    if (this.mapId !== 'vuon_nha') { this.tell(p, 'Hãy về Vườn Nhà để bắt sâu bọ!'); return; }
     const farm = this.farm(p);
     const plot = farm.plots[plotId];
     if (!plot || !plot.pest) { this.tell(p, 'Ô đất này không có sâu bọ'); return; }
@@ -854,6 +858,7 @@ export class World {
 
   private farmFertilize(p: Player, plotId: number) {
     if (p.dead) return;
+    if (this.mapId !== 'vuon_nha') { this.tell(p, 'Hãy về Vườn Nhà để bón phân cho ruộng!'); return; }
     if (!Number.isInteger(plotId) || plotId < 0 || plotId >= FARM.plotCount) return;
     const bag = this.life(p).bag;
     if (bagCount(bag, 'phan_ga') < 1) {
@@ -879,6 +884,7 @@ export class World {
 
   private farmHarvest(p: Player, plotId: number) {
     if (p.dead) return;
+    if (this.mapId !== 'vuon_nha') { this.tell(p, 'Hãy về Vườn Nhà để thu hoạch lúa chín!'); return; }
     if (!Number.isInteger(plotId) || plotId < 0 || plotId >= FARM.plotCount) return;
     const farm = this.farm(p);
     updateFarmPlots(farm.plots, this.now(), this.rnd);
@@ -911,6 +917,7 @@ export class World {
 
   private farmMill(p: Player, crop: CropKind) {
     if (p.dead) return;
+    if (this.mapId !== 'vuon_nha') { this.tell(p, 'Hãy về Vườn Nhà và đứng bên cối đá để xay thóc!'); return; }
     const bag = this.life(p).bag;
     if (crop === 'giong_te') {
       if (bagCount(bag, 'thoc') < 2) { this.tell(p, 'Cần ít nhất 2 Thóc tẻ để xay cối đá'); return; }
@@ -938,6 +945,7 @@ export class World {
 
   private coopAdd(p: Player) {
     if (p.dead) return;
+    if (this.mapId !== 'vuon_nha') { this.tell(p, 'Hãy về Vườn Nhà để thả gà vào chuồng!'); return; }
     const farm = this.farm(p);
     updateFarmChickens(farm, this.now(), this.rnd);
     if (farm.chickens.length >= FARM.maxChickens) {
@@ -960,6 +968,7 @@ export class World {
 
   private coopFeed(p: Player, item: 'thoc' | 'cam_gao') {
     if (p.dead) return;
+    if (this.mapId !== 'vuon_nha') { this.tell(p, 'Hãy về Vườn Nhà để cho gà ăn!'); return; }
     if (item !== 'thoc' && item !== 'cam_gao') return;
     const bag = this.life(p).bag;
     if (bagCount(bag, item) < 1) {
@@ -985,6 +994,7 @@ export class World {
 
   private coopCollect(p: Player) {
     if (p.dead) return;
+    if (this.mapId !== 'vuon_nha') { this.tell(p, 'Hãy về Vườn Nhà để nhặt trứng gà!'); return; }
     const farm = this.farm(p);
     updateFarmChickens(farm, this.now(), this.rnd);
     const totalEggs = farm.eggs + farm.goldenEggs;
@@ -1006,6 +1016,7 @@ export class World {
 
   private coopClean(p: Player) {
     if (p.dead) return;
+    if (this.mapId !== 'vuon_nha') { this.tell(p, 'Hãy về Vườn Nhà để dọn chuồng gà!'); return; }
     const farm = this.farm(p);
     updateFarmChickens(farm, this.now(), this.rnd);
     if (farm.manure <= 0) {

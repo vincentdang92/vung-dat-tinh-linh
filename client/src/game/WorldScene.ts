@@ -214,6 +214,25 @@ export class WorldScene extends Phaser.Scene {
       this.npcViews.push({ id, sprite, marker, talking: false, markerKey: '' });
     }
 
+    // Hiệu ứng đom đóm & bụi phấn vàng thanh bình cho Vườn Nhà
+    if (this.mapId === 'vuon_nha') {
+      for (let i = 0; i < 20; i++) {
+        const fx = Phaser.Math.Between(4 * TILE, 28 * TILE);
+        const fy = Phaser.Math.Between(10 * TILE, 50 * TILE);
+        const firefly = this.add.circle(fx, fy, Phaser.Math.Between(1.5, 2.5), 0xfef08a, 0.65).setDepth(fy + 50);
+        this.tweens.add({
+          targets: firefly,
+          x: fx + Phaser.Math.Between(-30, 30),
+          y: fy + Phaser.Math.Between(-25, 25),
+          alpha: { from: 0.2, to: 0.85 },
+          duration: Phaser.Math.Between(2500, 4500),
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+      }
+    }
+
     const cam = this.cameras.main;
     cam.setBounds(0, 0, WORLD_W, WORLD_H);
     cam.setBackgroundColor('#1d2b1a');

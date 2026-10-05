@@ -425,6 +425,109 @@ function drawVuonNha(g: Phaser.GameObjects.Graphics, map: GameMap) {
   g.fillEllipse(czX, czY - 26, 12, 24);
   // Bắp chuối tím hé nở
   g.fillStyle(0x831843, 1); g.fillEllipse(czX + 4, czY - 4, 6, 10);
+
+  // 8. Hàng Cau Thẳng Tắp Trước Sân ("Trước cau sau chuối")
+  const cauCoords = [
+    [24.5 * TILE, 44.5 * TILE],
+    [24.5 * TILE, 48.5 * TILE],
+  ];
+  for (const [px, py] of cauCoords) {
+    // Bóng đổ cây cau
+    g.fillStyle(0x000000, 0.22); g.fillEllipse(px, py + 4, 22, 8);
+    // Thân cau thanh mảnh vươn cao
+    g.fillStyle(0x365314, 1); g.fillRect(px - 2.5, py - 52, 5, 54);
+    g.fillStyle(0x4d7c0f, 1); g.fillRect(px - 1, py - 52, 2, 54);
+    // Các đốt vòng thân cau
+    g.lineStyle(1, 0x1e3a10, 0.8);
+    for (let h = py - 46; h <= py - 2; h += 8) {
+      g.beginPath(); g.moveTo(px - 2.5, h); g.lineTo(px + 2.5, h); g.strokePath();
+    }
+    // Buồng cau trĩu quả vàng cam sát cổ tàu
+    g.fillStyle(0xd97706, 1);
+    g.fillCircle(px - 3, py - 48, 3.5); g.fillCircle(px + 3, py - 47, 3.5);
+    g.fillCircle(px, py - 45, 3);
+    g.fillStyle(0xfde047, 1);
+    g.fillCircle(px - 2, py - 48, 1.2); g.fillCircle(px + 2, py - 47, 1.2);
+    // Tán lá cau hình lông chim xòe tỏa tròn
+    g.fillStyle(0x15803d, 1);
+    g.fillEllipse(px - 16, py - 56, 24, 7);
+    g.fillEllipse(px + 16, py - 56, 24, 7);
+    g.fillEllipse(px, py - 64, 8, 22);
+    g.fillEllipse(px - 12, py - 60, 18, 9);
+    g.fillEllipse(px + 12, py - 60, 18, 9);
+    g.fillStyle(0x22c55e, 0.85);
+    g.fillCircle(px, py - 54, 4);
+  }
+
+  // 9. Chum Sành Da Lươn & Gáo Dừa Góc Hiên Nhà (x: 22.2 * TILE, y: 43.2 * TILE)
+  const jx = 22.2 * TILE, jy = 43.2 * TILE;
+  // Bóng 2 chum
+  g.fillStyle(0x000000, 0.2); g.fillEllipse(jx, jy + 6, 36, 12);
+  // Chum lớn
+  g.fillStyle(0x572608, 1); g.fillCircle(jx - 6, jy, 11);
+  g.fillStyle(0x78350f, 1); g.fillCircle(jx - 7, jy - 1, 9.5);
+  g.fillStyle(0x9a3412, 1); g.fillCircle(jx - 8, jy - 2, 7.5);
+  // Miệng chum và nước trong
+  g.fillStyle(0x3e1804, 1); g.fillEllipse(jx - 6, jy - 9, 14, 5);
+  g.fillStyle(0x0284c7, 0.85); g.fillEllipse(jx - 6, jy - 9, 11, 3.5);
+  g.fillStyle(0x7dd3fc, 0.9); g.fillCircle(jx - 7, jy - 10, 1.5);
+  // Chum nhỏ cạnh bên
+  g.fillStyle(0x572608, 1); g.fillCircle(jx + 9, jy + 2, 8);
+  g.fillStyle(0x78350f, 1); g.fillCircle(jx + 8, jy + 1, 6.5);
+  g.fillStyle(0x3e1804, 1); g.fillEllipse(jx + 9, jy - 5, 10, 4);
+  g.fillStyle(0x0284c7, 0.85); g.fillEllipse(jx + 9, jy - 5, 8, 2.5);
+  // Gáo dừa cán tre gác miệng chum
+  g.lineStyle(1.5, 0xd97706, 1);
+  g.beginPath(); g.moveTo(jx - 13, jy - 7); g.lineTo(jx + 2, jy - 14); g.strokePath();
+  g.fillStyle(0x451a03, 1); g.fillCircle(jx - 12, jy - 7, 3);
+
+  // 10. Giàn Bầu / Giàn Mướp Hoa Vàng Ven Bờ Ao (x: 16.5 * TILE, y: 13.8 * TILE)
+  const gxT = 16.5 * TILE, gyT = 13.8 * TILE;
+  // Bóng đổ giàn
+  g.fillStyle(0x000000, 0.2); g.fillEllipse(gxT, gyT + 12, 54, 16);
+  // 4 Cọc tre chống giàn
+  g.lineStyle(2.5, 0x854d0e, 1);
+  g.beginPath(); g.moveTo(gxT - 22, gyT + 12); g.lineTo(gxT - 22, gyT - 16); g.strokePath();
+  g.beginPath(); g.moveTo(gxT + 22, gyT + 12); g.lineTo(gxT + 22, gyT - 16); g.strokePath();
+  g.beginPath(); g.moveTo(gxT - 7, gyT + 8); g.lineTo(gxT - 7, gyT - 18); g.strokePath();
+  g.beginPath(); g.moveTo(gxT + 7, gyT + 8); g.lineTo(gxT + 7, gyT - 18); g.strokePath();
+  // Giàn nan tre đan ngang dọc
+  g.lineStyle(1.5, 0xa16207, 0.9);
+  g.beginPath(); g.moveTo(gxT - 25, gyT - 16); g.lineTo(gxT + 25, gyT - 16); g.strokePath();
+  g.beginPath(); g.moveTo(gxT - 25, gyT - 10); g.lineTo(gxT + 25, gyT - 10); g.strokePath();
+  // Tán lá mướp xanh bò kín mặt giàn
+  g.fillStyle(0x166534, 0.9);
+  g.fillCircle(gxT - 15, gyT - 14, 10);
+  g.fillCircle(gxT, gyT - 16, 12);
+  g.fillCircle(gxT + 15, gyT - 14, 10);
+  g.fillStyle(0x22c55e, 0.85);
+  g.fillCircle(gxT - 8, gyT - 18, 8);
+  g.fillCircle(gxT + 8, gyT - 18, 8);
+  // Hoa mướp vàng rực rỡ
+  g.fillStyle(0xfacc15, 1);
+  g.fillCircle(gxT - 12, gyT - 19, 3); g.fillCircle(gxT + 4, gyT - 20, 3); g.fillCircle(gxT + 16, gyT - 16, 3);
+  g.fillStyle(0xffffff, 0.9);
+  g.fillCircle(gxT - 12, gyT - 19, 1); g.fillCircle(gxT + 4, gyT - 20, 1);
+  // Quả mướp / quả bầu xanh thon dài lòng thòng đung đưa
+  g.fillStyle(0x4ade80, 1);
+  g.fillEllipse(gxT - 6, gyT - 4, 4, 12);
+  g.fillEllipse(gxT + 12, gyT - 2, 4.5, 14);
+  g.fillStyle(0x15803d, 1); // cuống quả
+  g.fillRect(gxT - 7, gyT - 11, 2, 3);
+  g.fillRect(gxT + 11, gyT - 10, 2, 3);
+
+  // 11. Bậc Đá Cuội Tự Nhiên Lối Sang Khu Vườn (x: 12 * TILE, y: 43.5 * TILE)
+  const steps = [
+    [12 * TILE, 43.5 * TILE],
+    [11.2 * TILE, 42 * TILE],
+    [10.5 * TILE, 40.5 * TILE],
+  ];
+  for (const [sx, sy] of steps) {
+    g.fillStyle(0x000000, 0.18); g.fillEllipse(sx, sy + 3, 22, 10);
+    g.fillStyle(0x57534e, 1); g.fillEllipse(sx, sy, 20, 9);
+    g.fillStyle(0x78716c, 1); g.fillEllipse(sx - 1, sy - 1, 16, 7);
+    g.fillStyle(0xa8a29e, 0.9); g.fillCircle(sx - 3, sy - 2, 3);
+  }
 }
 
 

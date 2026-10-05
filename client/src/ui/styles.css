@@ -447,19 +447,44 @@ img.px { image-rendering: crisp-edges; image-rendering: pixelated; display: bloc
 
 .farm-card {
   width: 95%; max-width: 520px; max-height: 85vh;
-  background: #1e261a; border: 1px solid #4d7c0f; border-radius: 16px;
+  background: linear-gradient(175deg, #242c1d 0%, #1c2417 55%, #141b10 100%);
+  border: 1px solid #65a30d; border-radius: 16px;
   padding: 14px; display: flex; flex-direction: column; gap: 10px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, .6); color: #fef9c3;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .75), inset 0 1px 0 rgba(255, 255, 255, .08);
+  color: #fef9c3;
 }
 .farm-title-wrap { display: flex; align-items: center; gap: 8px; }
 .farm-level-badge {
   background: #84cc16; color: #14532d; font-size: 11px; font-weight: 800;
-  padding: 2px 7px; border-radius: 999px;
+  padding: 2px 7px; border-radius: 999px; box-shadow: 0 1px 4px rgba(0, 0, 0, .2);
 }
 .farm-proverb {
   font-size: 11px; color: #fde047; text-align: center;
-  background: rgba(0, 0, 0, .25); border-radius: 8px; padding: 4px 8px;
+  background: rgba(0, 0, 0, .3); border: 1px solid rgba(253, 224, 71, .15);
+  border-radius: 8px; padding: 4px 8px;
 }
+
+/* Banner vị trí & chế độ theo dõi */
+.farm-mode-banner {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 10px; border-radius: 10px; gap: 8px; font-size: 11.5px;
+}
+.farm-mode-banner.in-garden {
+  background: linear-gradient(90deg, rgba(34, 197, 94, .18) 0%, rgba(20, 83, 45, .28) 100%);
+  border: 1px solid rgba(74, 222, 128, .4); color: #dcfce7;
+}
+.farm-mode-banner.out-garden {
+  background: linear-gradient(90deg, rgba(234, 179, 8, .16) 0%, rgba(120, 53, 15, .28) 100%);
+  border: 1px solid rgba(250, 204, 21, .38); color: #fef08a;
+}
+.fmb-left { display: flex; align-items: center; gap: 8px; }
+.fmb-icon { font-size: 20px; line-height: 1; }
+.fmb-badge {
+  font-size: 10.5px; font-weight: 800; padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+}
+.fmb-badge.on { background: #22c55e; color: #052e16; }
+.fmb-badge.off { background: #eab308; color: #422006; }
+
 .farm-xp-bar-wrap { width: 100%; }
 
 .farm-tabs {
@@ -477,7 +502,7 @@ img.px { image-rendering: crisp-edges; image-rendering: pixelated; display: bloc
   overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 4px;
 }
 .farm-section {
-  background: rgba(0, 0, 0, .25); border: 1px solid rgba(132, 204, 22, .2);
+  background: rgba(0, 0, 0, .28); border: 1px solid rgba(132, 204, 22, .22);
   border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px;
 }
 .section-title {
@@ -485,17 +510,26 @@ img.px { image-rendering: crisp-edges; image-rendering: pixelated; display: bloc
 }
 .section-title b { color: #facc15; }
 
+/* Thông báo chế độ từ xa */
+.remote-action-notice {
+  background: rgba(234, 179, 8, .12); border: 1px dashed rgba(250, 204, 21, .45);
+  color: #fef08a; font-size: 11px; padding: 6px 10px; border-radius: 8px; text-align: center;
+}
+
 /* Thửa ruộng */
 .plot-grid {
   display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
 }
 .plot-card {
   background: #2a3424; border: 1px solid #3f6212; border-radius: 10px;
-  padding: 8px; display: flex; flex-direction: column; gap: 6px;
+  padding: 8px; display: flex; flex-direction: column; gap: 6px; transition: all .2s;
 }
 .plot-card.state-plowed { border-color: #854d0e; background: #2f251a; }
-.plot-card.wet { border-color: #0284c7; box-shadow: inset 0 0 8px rgba(56, 189, 248, .15); }
+.plot-card.wet { border-color: #0284c7; box-shadow: inset 0 0 8px rgba(56, 189, 248, .18); }
 .plot-card.pest { border-color: #ef4444; background: #381e1e; }
+.plot-card.ready-glow {
+  border-color: #facc15; box-shadow: 0 0 10px rgba(250, 204, 21, .35), inset 0 0 8px rgba(250, 204, 21, .15);
+}
 .plot-card-head {
   display: flex; justify-content: space-between; align-items: center; font-size: 11.5px;
 }
@@ -524,6 +558,28 @@ img.px { image-rendering: crisp-edges; image-rendering: pixelated; display: bloc
 .seed-btns button { flex: 1; font-size: 11px; padding: 4px 2px; }
 .btn.nep-btn { background: #d97706; color: #fff; }
 .harvest-btn { background: #eab308; color: #422006; font-weight: 800; }
+
+/* Trạng thái theo dõi từ xa của thửa ruộng */
+.plot-remote-status {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.prs-text {
+  font-size: 11px; padding: 4px 6px; border-radius: 6px; text-align: center; font-weight: 600;
+}
+.prs-text.empty {
+  background: rgba(255, 255, 255, .06); color: #a1a1aa; border: 1px solid rgba(255, 255, 255, .1);
+}
+.prs-text.plowed {
+  background: rgba(180, 83, 9, .2); color: #fde047; border: 1px solid rgba(180, 83, 9, .35);
+}
+.prs-text.ready {
+  background: #eab308; color: #422006; font-weight: 800; border: 1px solid #facc15;
+  animation: pulse 1.8s infinite;
+}
+.prs-text.growing {
+  background: rgba(34, 197, 94, .15); border: 1px solid rgba(34, 197, 94, .3); color: #86efac;
+}
+.prs-pest { color: #f87171; font-weight: 700; }
 
 /* Chuồng gà */
 .coop-status-bar {

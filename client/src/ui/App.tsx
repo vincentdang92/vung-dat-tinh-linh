@@ -1371,6 +1371,8 @@ function VisitingBanner({ farm }: { farm: NonNullable<ReturnType<typeof store.ge
 function FarmModal() {
   const me = useStore((s) => s.me);
   const tab = useStore((s) => s.farmTab);
+  const mapId = useStore((s) => s.mapId);
+  const inGarden = mapId === 'vuon_nha';
   const bag = me?.life.bag ?? {};
   const farm = me?.life.farm ?? defaultFarm();
   const visitFarm = me?.visitFarm;
@@ -1407,6 +1409,24 @@ function FarmModal() {
         {/* Ca dao tục ngữ đồng quê */}
         <div class="farm-proverb">
           <i>"Ơn trời mưa nắng phải thì · Nơi thì bừa cạn, nơi thì cày sâu"</i>
+        </div>
+
+        {/* Banner trạng thái vị trí: Vườn Nhà vs Chế độ theo dõi từ xa */}
+        <div class={`farm-mode-banner ${inGarden ? 'in-garden' : 'out-garden'}`}>
+          <div class="fmb-left">
+            <span class="fmb-icon">{inGarden ? '🏡' : '👁️'}</span>
+            <div>
+              <b>{inGarden ? 'Đang ở Vườn Nhà — Trực tiếp Canh Tác' : `Chế độ Theo Dõi Từ Xa (${MAP_NAMES[mapId] ?? mapId})`}</b>
+              <div class="tiny">
+                {inGarden
+                  ? 'Bạn có thể trực tiếp cuốc đất, gieo lúa, bắt sâu, tưới nước, thu hoạch và chăm sóc chuồng gà.'
+                  : 'Chỉ có thể theo dõi trạng thái vụ mùa. Hãy về Vườn Nhà để trực tiếp chăm sóc & thu hoạch!'}
+              </div>
+            </div>
+          </div>
+          <span class={`fmb-badge ${inGarden ? 'on' : 'off'}`}>
+            {inGarden ? '🟢 Tại Vườn' : '📡 Từ Xa'}
+          </span>
         </div>
 
         {/* Thanh kinh nghiệm nghề Canh nông */}
@@ -1460,7 +1480,7 @@ function FarmModal() {
                     const cropDef = plot.crop ? FARM.crops[plot.crop] : null;
 
                     return (
-                      <div key={i} class={`plot-card state-${plot.state} ${isWet ? 'wet' : 'dry'} ${plot.pest ? 'pest' : ''}`}>
+                      <div key={i} class={`plot-card state-${plot.state} ${isWet ? 'wet' : 'dry'} ${plot.pest ? 'pest' : ''} ${p >= 1 ? 'ready-glow' : ''}`}>
                         <div class="plot-card-head">
                           <span class="plot-idx">Thửa {i + 1}</span>
                           {plot.state === 'empty' && <span class="badge empty">Đất hoang</span>}
@@ -1499,42 +1519,65 @@ function FarmModal() {
 
                         {/* Nút hành động cho ô đất */}
                         <div class="plot-actions">
-                          {plot.state === 'empty' && (
-                            <button class="btn primary small" onClick={() => farmPlow(i)}>
-                              ⛏️ Cuốc đất
-                            </button>
-                          )}
-                          {plot.state === 'plowed' && (
+                          {!inGarden ? (
+                            <div class="plot-remote-status">
+                              {plot.state === 'empty' && (
+                                <span class="prs-text empty">🟤 Đất hoang · Về vườn để cuốc</span>
+                              )}
+                              {plot.state === 'plowed' && (
+                                <span class="prs-text plowed">🌱 Đã cuốc đất · Về vườn để gieo</span>
+                              )}
+                              {plot.state === 'planted' && p >= 1 && (
+                                <span class="prs-text ready">✨🌾 Lúa chín vàng! Về vườn để gặt</span>
+                              )}
+                              {plot.state === 'planted' && p < 1 && (
+                                <div class="prs-text growing">
+                                  <span>{isWet ? '💧 Đất ẩm đang lớn' : '🏜️ Đất khô (cần tưới)'}</span>
+                                  {plot.pest && <span class="prs-pest"> · 🐛 Có sâu!</span>}
+                                  <div class="tiny muted">Về Vườn Nhà để chăm sóc</div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
                             <>
-                              {!plot.fertilized && (bag.phan_ga ?? 0) > 0 && (
-                                <button class="btn ghost small" onClick={() => farmFertilize(i)}>
-                                  💩 Bón phân gà ({bag.phan_ga})
+                              {plot.state === 'empty' && (
+                                <button class="btn primary small" onClick={() => farmPlow(i)}>
+                                  ⛏️ Cuốc đất
                                 </button>
                               )}
-                              <div class="seed-btns">
-                                <button class="btn primary small" onClick={() => farmPlant(i, 'giong_te')} disabled={(bag.giong_te ?? 0) < 1}>
-                                  Gieo Lúa Tẻ ({bag.giong_te ?? 0})
-                                </button>
-                                <button class="btn primary small nep-btn" onClick={() => farmPlant(i, 'giong_nep')} disabled={(bag.giong_nep ?? 0) < 1}>
-                                  Gieo Lúa Nếp ({bag.giong_nep ?? 0})
-                                </button>
-                              </div>
-                            </>
-                          )}
-                          {plot.state === 'planted' && (
-                            <>
-                              {plot.pest && (
-                                <button class="btn warn small" onClick={() => farmWeed(i)}>
-                                  🐛 Bắt sâu cắn lúa
-                                </button>
+                              {plot.state === 'plowed' && (
+                                <>
+                                  {!plot.fertilized && (bag.phan_ga ?? 0) > 0 && (
+                                    <button class="btn ghost small" onClick={() => farmFertilize(i)}>
+                                      💩 Bón phân gà ({bag.phan_ga})
+                                    </button>
+                                  )}
+                                  <div class="seed-btns">
+                                    <button class="btn primary small" onClick={() => farmPlant(i, 'giong_te')} disabled={(bag.giong_te ?? 0) < 1}>
+                                      Gieo Lúa Tẻ ({bag.giong_te ?? 0})
+                                    </button>
+                                    <button class="btn primary small nep-btn" onClick={() => farmPlant(i, 'giong_nep')} disabled={(bag.giong_nep ?? 0) < 1}>
+                                      Gieo Lúa Nếp ({bag.giong_nep ?? 0})
+                                    </button>
+                                  </div>
+                                </>
                               )}
-                              <button class="btn ghost small" onClick={() => farmWater(i)}>
-                                💧 Tưới nước
-                              </button>
-                              {p >= 1 && (
-                                <button class="btn primary small harvest-btn" onClick={() => farmHarvest(i)}>
-                                  🌾 Thu hoạch lúa!
-                                </button>
+                              {plot.state === 'planted' && (
+                                <>
+                                  {plot.pest && (
+                                    <button class="btn warn small" onClick={() => farmWeed(i)}>
+                                      🐛 Bắt sâu cắn lúa
+                                    </button>
+                                  )}
+                                  <button class="btn ghost small" onClick={() => farmWater(i)}>
+                                    💧 Tưới nước
+                                  </button>
+                                  {p >= 1 && (
+                                    <button class="btn primary small harvest-btn" onClick={() => farmHarvest(i)}>
+                                      🌾 Thu hoạch lúa!
+                                    </button>
+                                  )}
+                                </>
                               )}
                             </>
                           )}
@@ -1552,21 +1595,27 @@ function FarmModal() {
                   <span class="muted tiny">Thả gà con, cho ăn no lớn lên đẻ trứng & sinh phân chuồng</span>
                 </div>
 
+                {!inGarden && (
+                  <div class="remote-action-notice">
+                    👁️ Đang theo dõi chuồng gà từ xa. Hãy về Vườn Nhà để cho gà ăn, nhặt trứng và gom phân chuồng.
+                  </div>
+                )}
+
                 <div class="coop-status-bar">
                   <div class="coop-trough">
                     <span>🌾 Máng ăn: <b>{farm.troughFood}/10 phần</b></span>
                     <div class="row-btns">
-                      <button class="btn ghost small" onClick={() => coopFeed('thoc')} disabled={(bag.thoc ?? 0) < 1 || farm.troughFood >= 10}>
+                      <button class="btn ghost small" onClick={() => coopFeed('thoc')} disabled={!inGarden || (bag.thoc ?? 0) < 1 || farm.troughFood >= 10} title={!inGarden ? 'Cần về Vườn Nhà' : undefined}>
                         Đổ thóc (+1) [còn {bag.thoc ?? 0}]
                       </button>
-                      <button class="btn ghost small" onClick={() => coopFeed('cam_gao')} disabled={(bag.cam_gao ?? 0) < 1 || farm.troughFood >= 10}>
+                      <button class="btn ghost small" onClick={() => coopFeed('cam_gao')} disabled={!inGarden || (bag.cam_gao ?? 0) < 1 || farm.troughFood >= 10} title={!inGarden ? 'Cần về Vườn Nhà' : undefined}>
                         Đổ cám (+1) [còn {bag.cam_gao ?? 0}]
                       </button>
                     </div>
                   </div>
 
                   {farm.chickens.length < 6 && (
-                    <button class="btn primary small" onClick={coopAdd} disabled={(bag.ga_con ?? 0) < 1}>
+                    <button class="btn primary small" onClick={coopAdd} disabled={!inGarden || (bag.ga_con ?? 0) < 1} title={!inGarden ? 'Cần về Vườn Nhà' : undefined}>
                       🐥 Thả gà con vào chuồng ({bag.ga_con ?? 0})
                     </button>
                   )}
@@ -1593,13 +1642,13 @@ function FarmModal() {
                 <div class="coop-harvest-bar">
                   <div class="coop-harvest-item">
                     <span>🥚 Ổ trứng: <b>{farm.eggs ?? 0} trứng gà</b>{farm.goldenEggs ? `, ${farm.goldenEggs} trứng hoàng kim` : ''}</span>
-                    <button class="btn primary small" onClick={coopCollect} disabled={((farm.eggs ?? 0) + (farm.goldenEggs ?? 0)) === 0}>
+                    <button class="btn primary small" onClick={coopCollect} disabled={!inGarden || ((farm.eggs ?? 0) + (farm.goldenEggs ?? 0)) === 0} title={!inGarden ? 'Cần về Vườn Nhà' : undefined}>
                       Nhặt trứng
                     </button>
                   </div>
                   <div class="coop-harvest-item">
                     <span>🧹 Phân chuồng: <b>{farm.manure ?? 0} phần</b></span>
-                    <button class="btn ghost small" onClick={coopClean} disabled={(farm.manure ?? 0) === 0}>
+                    <button class="btn ghost small" onClick={coopClean} disabled={!inGarden || (farm.manure ?? 0) === 0} title={!inGarden ? 'Cần về Vườn Nhà' : undefined}>
                       Dọn chuồng nhận phân gà
                     </button>
                   </div>
@@ -1612,13 +1661,18 @@ function FarmModal() {
                   <b>🥣 Cối Xay Lúa / Cối Giã Đá</b>
                   <span class="muted tiny">Xay 2 Thóc ➔ 2 Gạo + 1 Cám gạo (dùng nấu ăn hoặc nuôi gà)</span>
                 </div>
+                {!inGarden && (
+                  <div class="remote-action-notice">
+                    👁️ Cối xay đá đặt tại chái hiên Vườn Nhà. Hãy về vườn để xay thóc thành gạo.
+                  </div>
+                )}
                 <div class="mill-grid">
                   <div class="mill-row">
                     <div>
                       <b>Xay Thóc Tẻ</b>
                       <div class="muted tiny">2 Thóc tẻ ➔ 2 Gạo tẻ + 1 Cám gạo (có {bag.thoc ?? 0} thóc)</div>
                     </div>
-                    <button class="btn primary small" onClick={() => farmMill('giong_te')} disabled={(bag.thoc ?? 0) < 2}>
+                    <button class="btn primary small" onClick={() => farmMill('giong_te')} disabled={!inGarden || (bag.thoc ?? 0) < 2}>
                       Xay Thóc Tẻ
                     </button>
                   </div>
@@ -1627,7 +1681,7 @@ function FarmModal() {
                       <b>Xay Thóc Nếp Cái Hoa Vàng</b>
                       <div class="muted tiny">2 Thóc nếp ➔ 2 Gạo nếp + 1 Cám gạo (có {bag.thoc_nep ?? 0} thóc nếp)</div>
                     </div>
-                    <button class="btn primary small nep-btn" onClick={() => farmMill('giong_nep')} disabled={(bag.thoc_nep ?? 0) < 2}>
+                    <button class="btn primary small nep-btn" onClick={() => farmMill('giong_nep')} disabled={!inGarden || (bag.thoc_nep ?? 0) < 2}>
                       Xay Thóc Nếp
                     </button>
                   </div>
@@ -1637,31 +1691,32 @@ function FarmModal() {
               {/* MUA CÂY GIỐNG VÀ GÀ CON NHANH */}
               <div class="farm-section quick-buy-section">
                 <div class="section-title">
-                  <b>🛒 Cây Giống & Con Giống (Mua trực tiếp tại Vườn)</b>
+                  <b>🛒 Cây Giống & Con Giống {inGarden ? '(Mua trực tiếp tại Vườn)' : '(Đại lý giống Vườn Nhà)'}</b>
+                  {!inGarden && <span class="muted tiny">Về Vườn Nhà để mua hạt giống và con giống từ kho nông trại</span>}
                 </div>
                 <div class="quick-buy-grid">
                   <div class="qb-card">
                     <span>🌾</span>
                     <b>Giống Lúa Tẻ</b>
                     <small>4 vàng (có {bag.giong_te ?? 0})</small>
-                    <button class="btn primary small" onClick={() => buyItem('giong_te')} disabled={(me?.gold ?? 0) < 4}>
-                      Mua
+                    <button class="btn primary small" onClick={() => buyItem('giong_te')} disabled={!inGarden || (me?.gold ?? 0) < 4}>
+                      {inGarden ? 'Mua' : 'Tại vườn'}
                     </button>
                   </div>
                   <div class="qb-card">
                     <span>🌾</span>
                     <b>Giống Lúa Nếp</b>
                     <small>6 vàng (có {bag.giong_nep ?? 0})</small>
-                    <button class="btn primary small nep-btn" onClick={() => buyItem('giong_nep')} disabled={(me?.gold ?? 0) < 6}>
-                      Mua
+                    <button class="btn primary small nep-btn" onClick={() => buyItem('giong_nep')} disabled={!inGarden || (me?.gold ?? 0) < 6}>
+                      {inGarden ? 'Mua' : 'Tại vườn'}
                     </button>
                   </div>
                   <div class="qb-card">
                     <span>🐥</span>
                     <b>Gà Con Giống</b>
                     <small>12 vàng (có {bag.ga_con ?? 0})</small>
-                    <button class="btn primary small" onClick={() => buyItem('ga_con')} disabled={(me?.gold ?? 0) < 12}>
-                      Mua
+                    <button class="btn primary small" onClick={() => buyItem('ga_con')} disabled={!inGarden || (me?.gold ?? 0) < 12}>
+                      {inGarden ? 'Mua' : 'Tại vườn'}
                     </button>
                   </div>
                 </div>

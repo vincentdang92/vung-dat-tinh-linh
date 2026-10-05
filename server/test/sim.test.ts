@@ -1192,5 +1192,34 @@ test('món ăn dân gian mới: Trứng luộc nước dừa, Cơm nắm muối 
   assert.ok(p.stats.atk > atk0, 'ăn xôi gà tăng Công');
 });
 
+test('canh nông: khi ở ngoài Vườn Nhà (ví dụ Làng Tre) thì không thể cuốc, gieo, thu hoạch, chăm gà', () => {
+  const w = new World({ rnd: seeded(), mapId: 'lang_tre', now: () => DAY });
+  const id = w.addPlayer(World.newProfile('t', 'Khách Làng', 'warrior'));
+  const p = w.debugPlayer(id)!;
+  const farm = p.prof.life!.farm!;
+
+  // 1. Thử cuốc đất khi đang ở Làng Tre -> bị chặn
+  w.handle(id, { t: 'farm_plow', plot: 0 });
+  assert.equal(farm.plots[0].state, 'empty', 'không thể cuốc đất ngoài vườn nhà');
+
+  // 2. Thử gieo giống -> bị chặn
+  p.prof.life!.bag.giong_te = 1;
+  w.handle(id, { t: 'farm_plant', plot: 0, crop: 'giong_te' });
+  assert.equal(farm.plots[0].state, 'empty', 'không thể gieo lúa ngoài vườn nhà');
+  assert.equal(p.prof.life!.bag.giong_te, 1, 'vẫn giữ nguyên hạt giống');
+
+  // 3. Thử cho gà ăn -> bị chặn
+  p.prof.life!.bag.cam_gao = 2;
+  w.handle(id, { t: 'coop_feed', item: 'cam_gao' });
+  assert.equal(farm.troughFood, 0, 'không thể đổ thức ăn cho gà ngoài vườn nhà');
+  assert.equal(p.prof.life!.bag.cam_gao, 2);
+
+  // 4. Thử xay thóc -> bị chặn
+  p.prof.life!.bag.thoc = 4;
+  w.handle(id, { t: 'farm_mill', crop: 'giong_te' });
+  assert.equal(p.prof.life!.bag.thoc, 4, 'không thể xay thóc ngoài vườn nhà');
+});
+
+
 
 
