@@ -1,10 +1,10 @@
-# Happy Land — Art Design
+# Vùng đất Tinh linh — Art Design
 
 Oct 3, 2026 · @VienBT
 
 ## Định hướng art
 
-Happy Land dùng **pixel art chibi, góc nhìn 3/4 từ trên xuống**, màu tươi ấm như một buổi chiều nắng. Lý do: rẻ và nhanh để một người làm, phóng to nét căng trên điện thoại, và nhân vật chibi đầu to đọc rõ dù chỉ cao 32px.
+Vùng đất Tinh linh dùng **pixel art chibi, góc nhìn 3/4 từ trên xuống**, màu tươi ấm như một buổi chiều nắng. Lý do: rẻ và nhanh để một người làm, phóng to nét căng trên điện thoại, và nhân vật chibi đầu to đọc rõ dù chỉ cao 32px.
 
 | Hạng mục | Quy cách |
 | --- | --- |
@@ -27,63 +27,73 @@ Happy Land dùng **pixel art chibi, góc nhìn 3/4 từ trên xuống**, màu t�
 - Màu cảnh báo chỉ dành cho nguy hiểm: **đỏ/cam = sắp trúng đòn**, xanh lá = hồi máu, vàng = phần thưởng (vàng, lên cấp).
 - Màu hiệu ứng theo lớp, không lẫn nhau: Chiến binh cam–vàng, Cung thủ vàng kim–trắng, Pháp sư xanh băng–tím.
 
-**Lưu ý kỹ thuật:** bản MVP đang xoay cả sprite theo hướng đi (nhìn thẳng từ trên). Khi chuyển sang art 3/4, cần đổi phần vẽ trong `WorldScene.ts` sang chọn animation theo 4 hướng thay vì xoay ảnh.
+**Lưu ý kỹ thuật:** nhân vật người chơi và NPC đã là sprite pixel art 3/4 có hướng, **dựng bằng code** trong `client/src/game/sprites/` (lưới điểm ảnh 48×48, vẽ theo lớp bộ phận, tự viền). `WorldScene.ts` chọn animation theo hướng mặt, không còn xoay ảnh. Texture dùng lọc nearest riêng, không bật `pixelArt` toàn game để chữ vẫn mịn.
 
 ## Nhân vật
 
-Mỗi lớp nhận ra được chỉ bằng **dáng đầu và màu áo**, kể cả khi nhỏ trên màn hình: mũ sắt chóp đỏ, mũ trùm da, mũ phù thuỷ nhọn.
+Mỗi môn phái nhận ra được chỉ bằng **dáng đầu và màu áo**, kể cả khi nhỏ trên màn hình: nón chóp đồng có tua đỏ, khăn vấn cắm lông chim Lạc, khăn xếp tím.
 
-&#91;image: Concept 3 lớp nhân vật\]
-
-| Lớp | Dáng nhận diện | Màu chính | Trang phục | Tính cách thể hiện |
+| Môn phái (key) | Dáng nhận diện | Màu chính | Trang phục | Vũ khí mặc định |
 | --- | --- | --- | --- | --- |
-| Chiến binh | Mũ sắt tròn có chóp lông đỏ, vai giáp | Đỏ `#E0533D`, thép `#C9D1DB` | Áo đỏ, thắt lưng da, khiên gỗ tròn tay trái, kiếm tay phải | Đứng vững, chân dang rộng, gật đầu khi idle |
-| Cung thủ | Mũ trùm da ôm mặt, tóc mái vàng | Vàng hổ phách `#F2B33D`, da `#8A5A33` | Áo choàng xoè, dây đeo chéo, ống tên sau lưng, cung tay trái | Nhún nhảy nhẹ, nhanh nhẹn |
-| Pháp sư | Mũ phù thuỷ vành rộng, chóp gập | Xanh dương `#4F6FE0`, tím `#8E5BD6` | Áo dài chấm đất, tóc bạc, trượng gỗ đầu cầu băng | Áo phấp phới, quả cầu trên trượng nhấp nháy |
+| Thiết Kiếm Môn (`warrior`) | Nón chóp đồng có tua đỏ, 2 đuôi khăn đỏ bay sau lưng | Đỏ `#E0533D`, đồng `#E3B05B` | Áo đỏ, giáp ngực đồng khắc ngôi sao trống Đông Sơn | Kiếm Tre |
+| Lạc Tiễn Cốc (`archer`) | Khăn vấn hổ phách, 1 lông chim Lạc dựng cao | Hổ phách `#F2B33D`, nâu `#8A5A33` | Áo nâu viền hổ phách, dây đeo chéo, ống tên sau lưng | Nỏ Tre |
+| Thủy Phù Quán (`mage`) | Khăn xếp tím tròn, quạt xoè | Xanh `#4F6FE0`, tím `#8E5BD6` | Áo dài xanh chấm đất; 2 lá bùa vàng bay quanh người (code vẽ, không nằm trong sprite) | Quạt Giấy |
 
-**Animation cho mỗi lớp** (vẽ 3 hướng: xuống, lên, ngang; hướng còn lại lật):
+**Quy cách:** khung 48×48, chân ở hàng 41 (đặt giữa bóng elip), đầu khoảng 20 px, thân khoảng 16 px. Vẽ 3 hướng (xuống, lên, ngang phải); ngang trái lật từ ngang phải.
 
-| Animation | Số khung | Ghi chú |
-| --- | --- | --- |
-| Đứng (idle) | 4 | Thở nhẹ 1 px, lặp |
-| Đi | 6 | Lặp |
-| Đánh thường | 4–5 | 1 khung lấy đà rõ, khung trúng đòn giữ lâu hơn |
-| Chiêu | 6 | Tư thế riêng mỗi lớp |
-| Tuyệt chiêu | 8 | Có khung tạo dáng (pose) để chụp màn hình đẹp |
-| Lướt | 3 | Kèm vệt mờ 2–3 bóng ma phía sau |
-| Trúng đòn | 2 | Nháy trắng do code xử lý, art chỉ cần khung giật lùi |
-| Gục ngã | 4 | Chỉ cần hướng xuống |
+**Animation hiện có** (mỗi phái × 3 hướng):
 
-Tổng khoảng 110 khung mỗi lớp. Bản MVP đầu chỉ cần idle, đi, đánh thường cho 3 hướng (khoảng 45 khung/lớp), phần còn lại làm sau.
+| Animation | Số khung | Tốc độ | Ghi chú |
+| --- | --- | --- | --- |
+| Đứng (idle) | 2 | 3 khung/giây, lặp | Thở 1 px |
+| Đi | 4 | 9 khung/giây, lặp | Bật khi nhân vật dịch chuyển |
+| Đánh thường | 3 | 12 khung/giây, 1 lần | Lấy đà → trúng → thu về; quay về phía mục tiêu của sự kiện `atk` |
 
-**Đổi trang phục theo vũ khí:** chỉ đổi sprite vũ khí cầm tay (layer riêng), thân giữ nguyên. Nhờ vậy 9 vũ khí không nhân số khung nhân vật lên 9 lần.
+Để sau: chiêu (6), khinh công (3), trúng đòn (2, hiện nháy trắng bằng code), gục ngã (4), dáng bí kíp (8).
+
+**Đổi vũ khí:** vũ khí được vẽ theo góc cầm tay ở từng tư thế rồi ghép vào thân khi dựng sheet. Mỗi cặp phái + vũ khí là một sheet riêng (`hero_<phái>__<vũ khí>`), dựng lười khi cần. Snapshot đã có trường `w` nên đổi vũ khí là hình đổi ngay, không cần sửa server.
+
+## NPC Làng Tre
+
+NPC đứng yên nên chỉ vẽ hướng xuống. Mỗi NPC có một **prop tách riêng** đặt cạnh, có chiều sâu riêng.
+
+| NPC (key) | Ngoại hình | Prop | Idle | Khi đang nói chuyện |
+| --- | --- | --- | --- | --- |
+| Ông Táo (`tao`) | Ông lão bụ bẫm, râu bạc dài, má đỏ, khăn xếp đen điểm vàng, áo cam đỏ viền vàng, cầm muôi gỗ | Kiềng ba chân có lửa (3 khung nhấp nháy) | 4 khung, có động tác vuốt râu | 2 khung nhún, mở miệng |
+| Bà Hàng Nước (`nuoc`) | Bà cụ nón lá, khăn mỏ quạ, áo tứ thân nâu, môi đỏ ăn trầu, ngồi ghế đẩu, phe phẩy quạt nan | Bàn gỗ với ấm và 2 bát chè xanh | 4 khung, quạt lên xuống | 2 khung nhún |
+| Chú Cuội (`cuoi`) | Chàng trai tóc rối, áo cánh chàm, quần nâu xắn ống, chân trần, nón rơm đeo sau lưng, cầm sáo trúc ngang ngực | Cây đa non có rễ phụ | 4 khung, nháy mắt | 2 khung nhún, cười |
+
+Màu đại diện của Chú Cuội là **chàm `#3E5BA9`** (không dùng xanh lá).
+
+**Dấu nhiệm vụ trên đầu NPC** (code vẽ, nhấp nhô, lấy từ `quests`/`questProg`/`drumPieces`):
+
+- `!` vàng: có nhiệm vụ mới để nhận.
+- `?` vàng: đủ điều kiện, quay về trả.
+- `?` xám: đang làm dở.
 
 ## Vũ khí
 
 Độ hiếm phải nhìn ra được trong nửa giây, nhờ **ba lớp tín hiệu cộng dồn**: chất liệu, màu viền, và hiệu ứng phát sáng.
 
-&#91;image: Concept 9 vũ khí theo lớp và độ hiếm\]
-
 | Bậc | Màu khung UI | Chất liệu | Hiệu ứng trong game |
 | --- | --- | --- | --- |
-| Thường | Xám `#BDBDBD` | Gỗ, da, không đá quý | Không |
-| Hiếm | Xanh `#4AA3FF` | Kim loại, 1 viên đá xanh | Lấp lánh 1 điểm sáng mỗi 2 giây |
-| Sử thi | Tím `#A061FF` | Dáng riêng, có nguyên tố | Hào quang 1 px màu nguyên tố, vệt sáng khi vung, hạt bay quanh |
-| Huyền thoại (sau này) | Cam `#FF9A3D` | Dáng riêng + chi tiết vàng | Như sử thi, thêm cột sáng khi rơi xuống đất |
+| Thường | Xám `#BDBDBD` | Tre, gỗ, giấy | Không |
+| Hiếm | Xanh `#4AA3FF` | Đồng, 1 viên đá xanh | Quầng sáng xanh khi rơi trên đất |
+| Sử thi | Tím `#A061FF` | Dáng riêng, có nguyên tố | Quầng sáng tím khi rơi; lửa, sét hoặc hạt sáng trên vũ khí |
 
-| Vũ khí | Lớp | Bậc | Mô tả hình |
+| Vũ khí (key) | Môn phái | Bậc | Mô tả hình |
 | --- | --- | --- | --- |
-| Kiếm gỗ | Chiến binh | Thường | Lưỡi gỗ sáng, chuôi quấn da |
-| Kiếm sắt | Chiến binh | Hiếm | Lưỡi thép, đá xanh ở chắn tay |
-| Hỏa kiếm | Chiến binh | Sử thi | Lưỡi cam chuyển vàng, chắn tay vàng, đá đỏ; vệt lửa khi chém |
-| Cung ngắn | Cung thủ | Thường | Gỗ sáng, dây trắng |
-| Cung thợ săn | Cung thủ | Hiếm | Gỗ sẫm, hai đầu bịt kim loại, đá xanh |
-| Phong cung | Cung thủ | Sử thi | Thân xanh băng, đầu cung hình cánh chim; tên để lại vệt gió |
-| Gậy sồi | Pháp sư | Thường | Gậy gỗ đầu u tròn |
-| Trượng pha lê | Pháp sư | Hiếm | Cầu pha lê xanh, vòng bạc ôm cầu |
-| Trượng bão tố | Pháp sư | Sử thi | Thân tím sẫm, cầu tím, vòng vàng, tia sét nhảy quanh |
+| Kiếm Tre (`wood_sword`) | Thiết Kiếm Môn | Thường | Lưỡi tre vàng `#D8C27A` có đốt (không dùng xanh lá để khỏi chìm vào cỏ) |
+| Kiếm Đồng Đông Sơn (`iron_sword`) | Thiết Kiếm Môn | Hiếm | Lưỡi đồng, đá xanh ở chắn tay |
+| Roi Sắt Phù Đổng (`flame_blade`) | Thiết Kiếm Môn | Sử thi | Roi sắt nhiều đốt, đầu roi rực lửa |
+| Nỏ Tre (`short_bow`) | Lạc Tiễn Cốc | Thường | Thân và cánh nỏ bằng tre |
+| Nỏ Đồng (`hunter_bow`) | Lạc Tiễn Cốc | Hiếm | Báng gỗ sẫm, cánh đồng, đá xanh |
+| Nỏ Móng Rùa (`wind_bow`) | Lạc Tiễn Cốc | Sử thi | Cánh vàng, mũi móng rùa ngọc lam, hạt sáng tím |
+| Quạt Giấy (`oak_staff`) | Thủy Phù Quán | Thường | Giấy kem, nan nâu |
+| Quạt Lông Hạc (`crystal_staff`) | Thủy Phù Quán | Hiếm | Lông trắng mép xám, đá xanh |
+| Quạt Phong Lôi (`storm_staff`) | Thủy Phù Quán | Sử thi | Quạt tím sẫm, viền vàng, tia sét |
 
-**Mỗi vũ khí cần 3 asset:** icon túi đồ 24×24, sprite cầm tay khớp khung nhân vật (theo 3 hướng), và sprite rơi trên đất (dùng lại icon, thêm bóng và nhún lên xuống bằng code).
+**Mỗi vũ khí có 2 dạng hình:** sprite cầm tay ghép trong sheet nhân vật (3 hướng × mọi tư thế), và **icon 24×24** (`wpn_<key>`) dùng chung cho túi đồ, ô trang bị, cửa hàng và đồ rơi trên đất (code thêm nhún lên xuống và quầng sáng theo độ hiếm).
 
 ## Chiêu & tuyệt chiêu
 
@@ -111,7 +121,7 @@ Mỗi lớp có 4 nút: **đánh thường (tự động), chiêu, lướt, tuy�
 
 ## Quái
 
-Quái trong Happy Land **dễ thương nhưng có ý đồ xấu**: dáng tròn, mắt to, nhưng luôn có một chi tiết "nghịch" (mắt đỏ, nanh, khăn quàng của băng nhóm). Slime đổi từ xanh lá sang **hồng** để không chìm vào cỏ.
+Quái trong Vùng đất Tinh linh **dễ thương nhưng có ý đồ xấu**: dáng tròn, mắt to, nhưng luôn có một chi tiết "nghịch" (mắt đỏ, nanh, khăn quàng của băng nhóm). Slime đổi từ xanh lá sang **hồng** để không chìm vào cỏ.
 
 &#91;image: Concept quái hiện có và 2 quái đề xuất\]
 
@@ -131,7 +141,7 @@ Quái trong Happy Land **dễ thương nhưng có ý đồ xấu**: dáng tròn,
 
 **Môi trường:** làng gạch be ấm, mái ngói đỏ, đài phun nước xanh; rừng cỏ hai tông xanh với hoa vàng–hồng rải rác; đấu trường boss lát đá xám bao quanh bởi vòng đá. Cây và nhà vẽ **cao hơn 1 ô** (phần tán/mái đè lên ô phía trên) để có chiều sâu 3/4, và đặt ở layer riêng để nhân vật đi ra sau được.
 
-**UI:** nút tròn viền tím đậm, nền nâu gỗ trong suốt 60%, chữ trắng viền đen. Thanh máu đỏ, XP tím, Nộ vàng cam. Logo chữ "Happy Land" dạng pixel bo tròn, màu vàng `#F2C14E` viền tím đậm, có một ngọn cỏ mọc trên chữ L.
+**UI:** nút tròn viền tím đậm, nền nâu gỗ trong suốt 60%, chữ trắng viền đen. Thanh máu đỏ, XP tím, Nộ vàng cam. Logo chữ "Vùng đất Tinh linh" dạng pixel bo tròn, màu vàng `#F2C14E` viền tím đậm, có một ngọn cỏ mọc trên chữ L.
 
 | Asset | Số lượng | Ưu tiên |
 | --- | --- | --- |

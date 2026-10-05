@@ -5,13 +5,23 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { CLASSES, WEAPONS } from '../../shared/data.ts';
+import { isMapId } from '../../shared/map.ts';
+import { normalizeLife } from '../../shared/life.ts';
 import type { Profile } from './world.ts';
 
 const TOKEN_RE = /^[0-9a-f-]{36}$/;
 
+const firstArray = (...v: unknown[]) => v.find((x): x is number[] => Array.isArray(x));
+const firstObject = (...v: unknown[]) =>
+  v.find((x): x is Record<string, number> => typeof x === 'object' && x !== null && !Array.isArray(x));
+
+/** Cột gốc của bảng profiles: thiếu cột này là lỗi thật, không được bỏ qua khi lưu. */
+const REQUIRED_COLS = new Set(['token', 'name', 'cls', 'level', 'xp', 'gold', 'inv', 'weapon']);
+
 export class ProfileStore {
   private dir: string;
   private supabase: SupabaseClient | null = null;
+  private warnedColumns = new Set<string>();
 
   constructor(dir: string, supabaseUrl?: string, supabaseKey?: string) {
     this.dir = dir;
@@ -42,6 +52,11 @@ export class ProfileStore {
     return typeof token === 'string' && TOKEN_RE.test(token);
   }
 
+  /** Kết nối Supabase (null nếu đang dùng file cục bộ), dùng chung cho bảng tài khoản. */
+  get db(): SupabaseClient | null {
+    return this.supabase;
+  }
+
   /** Chuẩn hoá và điền mặc định cho Profile cũ thiếu trường */
   static normalize(p: any): Profile {
     return {
@@ -53,10 +68,13 @@ export class ProfileStore {
       gold: Number(p.gold) || 0,
       inv: Array.isArray(p.inv) ? p.inv : [],
       weapon: p.weapon,
-      drumPieces: Array.isArray(p.drumPieces) ? p.drumPieces : (Array.isArray(p.drum_pieces) ? p.drum_pieces : []),
-      quests: typeof p.quests === 'object' && p.quests !== null ? p.quests : { main1: 1 },
-      questProg: typeof p.questProg === 'object' && p.questProg !== null ? p.questProg : (typeof p.quest_prog === 'object' && p.quest_prog !== null ? p.quest_prog : {}),
+      // Postgres gấp tên cột không có ngoặc kép về chữ thường: Supabase trả `drumpieces`, `questprog`
+      drumPieces: firstArray(p.drumPieces, p.drumpieces, p.drum_pieces) ?? [],
+      quests: firstObject(p.quests) ?? { main1: 1 },
+      questProg: firstObject(p.questProg, p.questprog, p.quest_prog) ?? {},
       title: typeof p.title === 'string' ? p.title : '',
+      mapId: isMapId(p.mapId) ? p.mapId : isMapId(p.mapid) ? p.mapid : 'lang_tre',
+      life: normalizeLife(p.life),
     };
   }
 
@@ -101,6 +119,11 @@ export class ProfileStore {
         if (data) {
           if (!CLASSES[data.cls] || !WEAPONS[data.weapon] || !Array.isArray(data.inv)) return null;
           const prof = ProfileStore.normalize(data);
+          // Bảng chưa có cột `life` (chưa chạy migration): giữ tiến độ Nghề Sống từ bản lưu cục bộ
+          if (!('life' in data)) {
+            const local = this.loadLocal(token);
+            if (local?.life) prof.life = local.life;
+          }
           this.saveLocal(prof); // Cập nhật cache cục bộ
           return prof;
         }
@@ -143,36 +166,36 @@ export class ProfileStore {
         gold: p.gold,
         inv: p.inv,
         weapon: p.weapon,
-        drumPieces: p.drumPieces ?? [],
+        // Tên cột viết thường cho khớp Postgres (schema.sql không đặt ngoặc kép).
+        // Trước đây gửi `drumPieces`/`questProg` nên Supabase báo thiếu cột, rơi xuống bản basic
+        // và nhiệm vụ không bao giờ được lưu lên.
+        drumpieces: p.drumPieces ?? [],
         quests: p.quests ?? {},
-        questProg: p.questProg ?? {},
+        questprog: p.questProg ?? {},
         title: p.title ?? '',
+        mapid: p.mapId ?? 'lang_tre',
+        life: p.life ?? { xp: {}, bag: {} },
         updated_at: new Date().toISOString(),
       };
 
       try {
-        const { error } = await this.supabase
-          .from('profiles')
-          .upsert(fullPayload, { onConflict: 'token' });
-
-        if (error) {
-          // Nếu bảng trên Supabase chưa có các cột mới, thử upsert dạng basic để không fail
-          if (error.message.includes('column') || error.code === 'PGRST204') {
-            const basicPayload = {
-              token: p.token,
-              name: p.name,
-              cls: p.cls,
-              level: p.level,
-              xp: p.xp,
-              gold: p.gold,
-              inv: p.inv,
-              weapon: p.weapon,
-              updated_at: new Date().toISOString(),
-            };
-            await this.supabase.from('profiles').upsert(basicPayload, { onConflict: 'token' });
-          } else {
-            console.error(`[Store] Lỗi lưu Supabase (token=${p.token}):`, error.message);
+        // Bảng thiếu cột nào (chưa chạy migration) thì bỏ đúng cột đó rồi lưu lại, không bỏ cả tiến độ
+        let payload: Record<string, unknown> = fullPayload;
+        for (let attempt = 0; attempt < 6; attempt++) {
+          const { error } = await this.supabase.from('profiles').upsert(payload, { onConflict: 'token' });
+          if (!error) break;
+          const col = /'([a-z_]+)' column/i.exec(error.message)?.[1];
+          if ((error.code === 'PGRST204' || error.message.includes('column')) && col && col in payload && !REQUIRED_COLS.has(col)) {
+            if (!this.warnedColumns.has(col)) {
+              this.warnedColumns.add(col);
+              console.warn(`[Store] Bảng profiles thiếu cột "${col}", tạm bỏ qua khi lưu. Hãy chạy lại supabase/schema.sql.`);
+            }
+            const { [col]: _drop, ...rest } = payload;
+            payload = rest;
+            continue;
           }
+          console.error(`[Store] Lỗi lưu Supabase (token=${p.token}):`, error.message);
+          break;
         }
       } catch (err) {
         console.error('[Store] Lỗi ngoại lệ khi lưu Supabase:', err);

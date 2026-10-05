@@ -1,12 +1,12 @@
-# Happy Land – Vùng đất Vui Vẻ: Cốt truyện & Gameplay
+# Vùng đất Tinh linh: Cốt truyện & Gameplay
 
 Oct 3, 2026 · @VienBT
 
-Happy Land chuyển sang thế giới **cổ tích Việt pha kiếm hiệp nhẹ**, giữ art chibi vui. Tài liệu này là đặc tả để agent cập nhật code theo 2 giai đoạn.
+Vùng đất Tinh linh chuyển sang thế giới **cổ tích Việt pha kiếm hiệp nhẹ**, giữ art chibi vui. Tài liệu này là đặc tả để agent cập nhật code theo 2 giai đoạn.
 
 ## Hướng đi
 
-Tên chính thức: **Happy Land – Vùng đất Vui Vẻ**. Người chơi Việt nhận ra truyện cổ và chất võ lâm quen thuộc; người nước ngoài thấy một thế giới lạ, dễ thương.
+Tên chính thức: **Vùng đất Tinh linh**. Người chơi Việt nhận ra truyện cổ và chất võ lâm quen thuộc; người nước ngoài thấy một thế giới lạ, dễ thương.
 
 **Ba trụ cột:**
 
@@ -25,7 +25,7 @@ Tên chính thức: **Happy Land – Vùng đất Vui Vẻ**. Người chơi Vi�
 
 **Sợi chỉ chính: tìm lại 4 mảnh Trống Đồng để phong ấn yêu tinh.**
 
-Vùng đất Vui Vẻ là thung lũng yên bình nhờ **Trống Đồng Linh** đặt ở đình làng. Mỗi mùa hội, tiếng trống giữ yêu tinh ngủ yên trong rừng núi. Năm nay, Mộc Tinh của cây đa cổ lén đánh cắp trống, đập vỡ thành 4 mảnh và chia cho các chúa yêu ở 4 vùng. Yêu tinh thức giấc khắp nơi.
+Vùng đất Tinh linh là thung lũng yên bình nhờ **Trống Đồng Linh** đặt ở đình làng. Mỗi mùa hội, tiếng trống giữ yêu tinh ngủ yên trong rừng núi. Năm nay, Mộc Tinh của cây đa cổ lén đánh cắp trống, đập vỡ thành 4 mảnh và chia cho các chúa yêu ở 4 vùng. Yêu tinh thức giấc khắp nơi.
 
 Người chơi là **đệ tử trẻ của 3 môn phái** trong làng. Ông Táo, người giữ bếp lửa đình làng, giao nhiệm vụ: đi qua từng vùng, hạ chúa yêu, mang mảnh trống về. Khi đủ 4 mảnh, trống vang lên và mở ra phần tiếp theo (Thành Cổ Loa, nội dung sau này).
 
@@ -184,8 +184,8 @@ Làm **giai đoạn 1 trước, xong và test xong mới sang giai đoạn 2**. 
 | File | Việc cần làm |
 | --- | --- |
 | `shared/data.ts` | Đổi `name`, `desc`, `skill.name`, `skill.desc` của 3 lớp; `name` của 9 vũ khí; `name` của 3 quái theo các bảng ở trên |
-| `client/src/ui/App.tsx` | Tiêu đề sảnh "Happy Land", phụ đề "Vùng đất Vui Vẻ"; nhãn "Chọn lớp" thành "Chọn môn phái"; nút "Lướt" thành "Khinh Công"; cập nhật dòng gợi ý điều khiển |
-| `client/index.html`, `client/public/manifest.webmanifest` | Tên đầy đủ "Happy Land – Vùng đất Vui Vẻ", tên ngắn giữ "Happy Land" |
+| `client/src/ui/App.tsx` | Tiêu đề sảnh "Vùng đất Tinh linh", phụ đề "Nhập vai online màn hình dọc"; nhãn "Chọn lớp" thành "Chọn môn phái"; nút "Lướt" thành "Khinh Công"; cập nhật dòng gợi ý điều khiển |
+| `client/index.html`, `client/public/manifest.webmanifest` | Tên đầy đủ "Vùng đất Tinh linh", tên ngắn "Tinh Linh" |
 | `client/src/game/textures.ts` | Vẽ lại hình tạm: `mob_slime` thành bánh trôi trắng nhân đỏ; `mob_wolf` thành cáo cam đuôi bông; `mob_boss` thành gốc cây có mặt và tán lá; vòng báo chiêu Lôi Phù đổi sang cam viền vàng trong `WorldScene.ts` |
 | `shared/map.ts` | Giữ nguyên bố cục và va chạm; chỉ đổi chú thích (đài phun nước thành giếng làng, đấu trường thành gốc đa cổ) |
 | `client/src/game/textures.ts` (map) | Đài phun nước vẽ thành giếng làng; thêm một cây đa lớn trang trí cạnh giếng (chỉ là hình, không thêm va chạm) |
@@ -219,4 +219,4 @@ Làm **giai đoạn 1 trước, xong và test xong mới sang giai đoạn 2**. 
 - [ ] Thoát game giữa chừng rồi vào lại vẫn giữ đúng bước nhiệm vụ
 - [ ] Không thể dùng bí kíp, mua bán, nhận thưởng nhiệm vụ bằng cách gửi gói tin giả từ client
 
-**Ngoài phạm vi cả 2 giai đoạn:** vùng 2–4, bang hội, tỷ thí, sự kiện lịch âm, art thật (làm theo doc Happy Land — Art Design).
+**Ngoài phạm vi cả 2 giai đoạn:** vùng 2–4, bang hội, tỷ thí, sự kiện lịch âm, art thật (làm theo doc Vùng đất Tinh linh — Art Design).

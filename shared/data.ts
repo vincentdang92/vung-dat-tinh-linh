@@ -81,8 +81,10 @@ export function weaponsFor(cls: ClassId, rarity: Rarity): WeaponDef[] {
   return Object.values(WEAPONS).filter((w) => w.cls === cls && w.rarity === rarity);
 }
 
+import type { MonsterKind } from './map.ts';
+
 export interface MonsterDef {
-  kind: 'slime' | 'wolf' | 'boss';
+  kind: MonsterKind;
   name: string;
   level: number;
   hp: number;
@@ -99,9 +101,11 @@ export interface MonsterDef {
   respawnMs: number;
   color: number;
   drops: { potion: number; rare: number; epic: number };
+  /** Thú rừng: 'flee' bỏ chạy khi người lại gần, 'neutral' chỉ đánh lại khi bị đánh. */
+  critter?: 'flee' | 'neutral';
 }
 
-export const MONSTERS: Record<'slime' | 'wolf' | 'boss', MonsterDef> = {
+export const MONSTERS: Record<MonsterKind, MonsterDef> = {
   slime: {
     kind: 'slime', name: 'Bánh Trôi Tinh', level: 1, hp: 34, atk: 7, def: 0, speed: 48, radius: 12,
     aggro: 100, leash: 220, atkRange: 22, atkCd: 1200, xp: 7, gold: [1, 4], respawnMs: 8000,
@@ -117,14 +121,70 @@ export const MONSTERS: Record<'slime' | 'wolf' | 'boss', MonsterDef> = {
     aggro: 150, leash: 170, atkRange: 34, atkCd: 1400, xp: 260, gold: [60, 120], respawnMs: 90000,
     color: 0x4a6b36, drops: { potion: 1, rare: 0.5, epic: 1 },
   },
+  crab: {
+    kind: 'crab', name: 'Cua Đá', level: 9, hp: 220, atk: 18, def: 14, speed: 48, radius: 14,
+    aggro: 110, leash: 220, atkRange: 24, atkCd: 1300, xp: 40, gold: [6, 14], respawnMs: 12000,
+    color: 0x78716c, drops: { potion: 0.35, rare: 0.15, epic: 0.02 },
+  },
+  frog: {
+    kind: 'frog', name: 'Ếch Lửa', level: 10, hp: 170, atk: 24, def: 6, speed: 40, radius: 13,
+    aggro: 160, leash: 260, atkRange: 160, atkCd: 1800, xp: 48, gold: [8, 16], respawnMs: 12000,
+    color: 0x3d7a35, drops: { potion: 0.35, rare: 0.18, epic: 0.03 },
+  },
+  mada: {
+    kind: 'mada', name: 'Ma Da', level: 12, hp: 260, atk: 28, def: 10, speed: 58, radius: 13,
+    aggro: 140, leash: 240, atkRange: 26, atkCd: 1100, xp: 62, gold: [12, 22], respawnMs: 15000,
+    color: 0x1e3a5f, drops: { potion: 0.4, rare: 0.22, epic: 0.05 },
+  },
+  serpent: {
+    kind: 'serpent', name: 'Thuồng Luồng', level: 15, hp: 3200, atk: 38, def: 16, speed: 62, radius: 26,
+    aggro: 180, leash: 200, atkRange: 42, atkCd: 1500, xp: 600, gold: [120, 250], respawnMs: 120000,
+    color: 0x164e63, drops: { potion: 1, rare: 0.6, epic: 1 },
+  },
+  // ---- Thú rừng (Nghề Săn bắt): không rơi vàng/vũ khí, thịt vào thẳng Giỏ Tre ----
+  // 'flee': thấy người trong bán kính `aggro` là bỏ chạy (chạy một quãng lại đứng thở), không đánh lại.
+  rabbit: {
+    kind: 'rabbit', name: 'Thỏ Rừng', level: 1, hp: 22, atk: 0, def: 0, speed: 104, radius: 10,
+    aggro: 85, leash: 200, atkRange: 0, atkCd: 99999, xp: 2, gold: [0, 0], respawnMs: 20000,
+    color: 0xc8b49a, drops: { potion: 0, rare: 0, epic: 0 }, critter: 'flee',
+  },
+  fowl: {
+    kind: 'fowl', name: 'Gà Rừng', level: 1, hp: 18, atk: 0, def: 0, speed: 96, radius: 10,
+    aggro: 80, leash: 200, atkRange: 0, atkCd: 99999, xp: 2, gold: [0, 0], respawnMs: 20000,
+    color: 0xb45309, drops: { potion: 0, rare: 0, epic: 0 }, critter: 'flee',
+  },
+  lele: {
+    kind: 'lele', name: 'Le Le', level: 2, hp: 20, atk: 0, def: 0, speed: 92, radius: 10,
+    aggro: 90, leash: 180, atkRange: 0, atkCd: 99999, xp: 3, gold: [0, 0], respawnMs: 20000,
+    color: 0x78716c, drops: { potion: 0, rare: 0, epic: 0 }, critter: 'flee',
+  },
+  // 'neutral': hiền cho tới khi bị đánh rồi mới húc lại
+  boar: {
+    kind: 'boar', name: 'Lợn Rừng', level: 5, hp: 160, atk: 11, def: 4, speed: 78, radius: 14,
+    aggro: 0, leash: 220, atkRange: 24, atkCd: 1300, xp: 14, gold: [0, 0], respawnMs: 45000,
+    color: 0x44403c, drops: { potion: 0, rare: 0, epic: 0 }, critter: 'neutral',
+  },
 };
 
 // Đòn Rễ Đâm của Chúa Mộc Tinh (báo trước vòng tròn rồi mới gây sát thương)
 export const BOSS_SLAM = { every: 6500, telegraphMs: 1200, radius: 90, mult: 2.0 };
 
+// Đòn Quẫy Đuôi và Sóng Dữ của Thuồng Luồng
+export const BOSS_SERPENT = {
+  sweepEvery: 5500,
+  sweepTelegraphMs: 900,
+  sweepRadius: 85,
+  sweepMult: 1.8,
+  waveEvery: 8500,
+  waveRadius: 130,
+  waveMult: 1.5,
+};
+
 export const ITEMS = {
   potion: { key: 'potion', name: 'Bình máu' },
   leaf: { key: 'leaf', name: 'Lá Đa Cổ' },
+  lotus_seed: { key: 'lotus_seed', name: 'Hạt Sen Đêm' },
+  shoe: { key: 'shoe', name: 'Chiếc Hài Thêu' },
 } as const;
 
 export interface UltimateDef {
@@ -147,18 +207,34 @@ export const ULTIMATES: Record<ClassId, UltimateDef> = {
   },
 };
 
-/** Chỉ số nhân vật theo cấp + vũ khí + số mảnh Trống Đồng (+5% máu/mảnh). */
-export function statsFor(cls: ClassId, level: number, weaponKey: string | null, drumPiecesCount = 0) {
+/** Chỉ số nhân vật theo cấp + vũ khí + số mảnh Trống Đồng (+5% máu/mảnh) + Tranh Đông Hồ. */
+export function statsFor(
+  cls: ClassId,
+  level: number,
+  weaponKey: string | null,
+  drumPiecesCount = 0,
+  prog?: Record<string, number>,
+) {
   const c = CLASSES[cls];
   const w = weaponKey ? WEAPONS[weaponKey] : undefined;
   const lv = level - 1;
   const baseHp = Math.round(c.hp * (1 + 0.12 * lv));
-  const maxHp = Math.round(baseHp * (1 + 0.05 * Math.max(0, drumPiecesCount)));
+  let maxHp = Math.round(baseHp * (1 + 0.05 * Math.max(0, drumPiecesCount)));
+  let atk = Math.round(c.atk * (1 + 0.1 * lv)) + (w?.atk ?? 0);
+  let def = c.def + Math.floor(lv * 0.8);
+  let speed = c.speed;
+
+  // Thưởng chỉ số vĩnh viễn từ Sổ Tay Tranh Đông Hồ
+  if (prog?.codex_chan_trau) maxHp += 30; // Chăn Trâu Thổi Sáo
+  if (prog?.codex_hung_dua) atk += 3;    // Hứng Dừa
+  if (prog?.codex_dam_cuoi_chuot) def += 2; // Đám Cưới Chuột
+  if (prog?.codex_vinh_hoa) speed = Math.round(speed * 1.05); // Vinh Hoa Phú Quý
+
   return {
     maxHp,
-    atk: Math.round(c.atk * (1 + 0.1 * lv)) + (w?.atk ?? 0),
-    def: c.def + Math.floor(lv * 0.8),
-    speed: c.speed,
+    atk,
+    def,
+    speed,
     range: c.range + (w?.range ?? 0),
     atkCd: Math.max(250, c.atkCd + (w?.atkCd ?? 0)),
     aoe: c.aoe + (w?.aoe ?? 0),

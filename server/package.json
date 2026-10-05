@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/index.ts",
     "dev": "node --experimental-strip-types --disable-warning=ExperimentalWarning --watch src/index.ts",
-    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/sim.test.ts"
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/sim.test.ts test/auth.test.ts test/store.test.ts test/realm.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",

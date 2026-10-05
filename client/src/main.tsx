@@ -1,6 +1,6 @@
 import { render } from 'preact';
 import { App } from './ui/App.tsx';
-import './ui/styles.css';
+import './ui/styles.css?v=3'; // ?v=: đổi URL để điện thoại bỏ bản CSS cũ Cloudflare đã cho cache
 
 render(<App />, document.getElementById('ui')!);
 

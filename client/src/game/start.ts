@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { WorldScene } from './WorldScene.ts';
 import type { Net } from '../net.ts';
+import type { MapId } from '../../../shared/map.ts';
 
 let game: Phaser.Game | null = null;
 
@@ -15,7 +16,7 @@ function viewSize() {
 export function startGame(net: Net) {
   game?.destroy(true);
   const { w, h } = viewSize();
-  game = new Phaser.Game({
+  const g = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',
     width: w,
@@ -28,8 +29,17 @@ export function startGame(net: Net) {
     fps: { target: 60 },
     banner: false,
   });
-  game.scene.add('world', WorldScene, true, { net });
-  return game;
+  game = g;
+  // Cảnh thế giới chỉ dựng khi server báo bản đồ (welcome), và dựng lại mỗi lần qua cổng
+  net.onMap = (mapId) => { if (game === g) mountWorld(g, net, mapId); };
+  return g;
+}
+
+/** Bỏ cảnh cũ, dựng cảnh mới cho bản đồ `mapId` (instance mới nên mọi trạng thái được làm sạch). */
+function mountWorld(g: Phaser.Game, net: Net, mapId: MapId) {
+  net.onSnap = () => {}; // snapshot đến giữa lúc đổi cảnh: bỏ qua, cảnh mới sẽ nhận các gói sau
+  if (g.scene.getScene('world')) g.scene.remove('world');
+  g.scene.add('world', WorldScene, true, { net, mapId });
 }
 
 export function stopGame() {

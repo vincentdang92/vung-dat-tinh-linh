@@ -206,3 +206,393 @@ button { font: inherit; color: inherit; }
   background: rgba(0, 0, 0, 0.3); padding: 8px 12px; border-radius: 10px;
 }
 .sell-list { max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+
+/* Pixel art (nhân vật, icon vũ khí): giữ nét điểm ảnh khi phóng to */
+img.px { image-rendering: crisp-edges; image-rendering: pixelated; display: block; flex: none; }
+.cls .hero-preview { width: 72px; height: 72px; margin: -6px 0 -4px; filter: drop-shadow(0 3px 0 rgba(0,0,0,.35)); }
+.slot .wpn-icon { width: 36px; height: 36px; }
+.equipped .slot .wpn-icon { width: 36px; height: 36px; }
+.shop-row .wpn-icon { width: 36px; height: 36px; margin-right: 10px; }
+.shop-row .grow { flex: 1; min-width: 0; }
+
+/* Đăng nhập nhanh & tạo nhân vật */
+.card > p { margin: 0; }
+.card-title { font-size: 16px; color: var(--accent); }
+.input.bad { border-color: #f87171; }
+.field-err { margin: -4px 0 0 !important; font-size: 12px; color: #fca5a5; }
+.form-err { padding: 8px 10px; border-radius: 8px; background: rgba(239, 68, 68, .15); color: #fecaca; font-size: 12.5px; }
+.note { text-align: center; }
+.input-wrap { position: relative; display: flex; align-items: center; }
+.input-wrap .input { padding-right: 50px; }
+.input-wrap .name-input { padding-right: 96px; }
+.input-icon { position: absolute; right: 6px; width: 38px; height: 38px; border: none; border-radius: 8px; background: transparent; font-size: 20px; line-height: 1; cursor: pointer; }
+.input-icon:hover { background: rgba(255, 255, 255, .08); }
+.name-count { position: absolute; right: 50px; font-size: 11px; color: var(--muted); pointer-events: none; }
+.dice.spin { animation: dice-roll .45s ease-out; }
+@keyframes dice-roll {
+  0% { transform: rotate(0) scale(1); }
+  50% { transform: rotate(200deg) scale(1.25); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+.account-bar { width: 100%; max-width: 380px; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12.5px; }
+.account-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-btn { flex: none; padding: 4px; border: none; background: none; color: var(--accent); font-weight: 600; cursor: pointer; }
+.char-row { gap: 12px; }
+.char-avatar { width: 48px; height: 48px; border-radius: 10px; background: rgba(0, 0, 0, .3); }
+.warn-note { padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(250, 204, 21, .25); background: rgba(250, 204, 21, .08); color: #fcd34d; font-size: 12px; }
+
+/* Nhiệm vụ phụ (Side Quests) */
+.quest-tracker .side-quest { margin-top: 6px; padding-top: 4px; border-top: 1px dashed rgba(242, 193, 78, 0.25); }
+.quest-tracker .q-title.side { color: #f472b6; }
+
+/* Modals mới: Đố Vui, Tranh Đông Hồ, Cáo Thị */
+.trivia-card, .codex-card, .notice-card {
+  width: 100%; max-width: 420px; max-height: 85vh; overflow-y: auto;
+  background: var(--panel); border: 2px solid var(--accent); border-radius: 16px;
+  padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+}
+
+.trivia-nav { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 8px; }
+.trivia-body { display: flex; flex-direction: column; gap: 10px; }
+.trivia-q { font-size: 13.5px; font-weight: 600; color: #fef08a; line-height: 1.4; margin: 4px 0; }
+.trivia-options { display: flex; flex-direction: column; gap: 8px; }
+.trivia-btn {
+  text-align: left; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.05); color: var(--text); font-size: 13px; cursor: pointer;
+  display: flex; align-items: center; gap: 8px; transition: background 0.15s;
+}
+.trivia-btn:hover:not(:disabled) { background: rgba(242, 193, 78, 0.15); border-color: var(--accent); }
+.trivia-btn.correct { background: rgba(34, 197, 94, 0.25); border-color: #22c55e; color: #86efac; }
+.trivia-btn.wrong { background: rgba(239, 68, 68, 0.25); border-color: #ef4444; color: #fca5a5; }
+.opt-idx { font-weight: 700; color: var(--accent); }
+.trivia-feedback { padding: 10px 12px; border-radius: 10px; font-size: 12px; line-height: 1.4; }
+.trivia-feedback.good { background: rgba(34, 197, 94, 0.15); border: 1px solid #22c55e; color: #bbf7d0; }
+.trivia-feedback.warn { background: rgba(234, 179, 8, 0.15); border: 1px solid #eab308; color: #fef08a; }
+.trivia-feedback p { margin: 4px 0 0; }
+
+.codex-list, .notice-list { max-height: 52vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
+.codex-item {
+  border-radius: 12px; padding: 12px; border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.35); display: flex; flex-direction: column; gap: 6px;
+}
+.codex-item.unlocked {
+  border-color: rgba(242, 193, 78, 0.6); background: rgba(242, 193, 78, 0.06);
+  box-shadow: 0 0 12px rgba(242, 193, 78, 0.15);
+}
+.codex-item.locked { opacity: 0.65; }
+.codex-head { display: flex; justify-content: space-between; align-items: center; }
+.codex-title-wrap { display: flex; align-items: center; gap: 8px; }
+.codex-icon { font-size: 20px; }
+.codex-badge {
+  font-size: 9.5px; font-weight: 700; padding: 2px 6px; border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1); color: var(--muted);
+}
+.codex-badge.on { background: #eab308; color: #1a0f00; }
+.codex-verse {
+  display: flex; flex-direction: column; font-size: 11.5px; color: #fef08a;
+  border-left: 2px solid var(--accent); padding-left: 8px; margin: 2px 0;
+}
+.codex-desc { color: #d4d4d8; line-height: 1.35; margin: 0; }
+.codex-buff {
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(0, 0, 0, 0.4); padding: 4px 8px; border-radius: 6px; font-size: 11px;
+}
+.buff-label { color: var(--muted); }
+.buff-val { color: #4ade80; font-weight: 700; }
+
+.notice-item {
+  border-radius: 12px; padding: 12px; border: 1px solid rgba(217, 119, 6, 0.4);
+  background: rgba(217, 119, 6, 0.06); display: flex; flex-direction: column; gap: 6px;
+}
+.notice-head { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: #fde68a; }
+.notice-tag {
+  font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px;
+  background: rgba(217, 119, 6, 0.3); color: #fed7aa;
+}
+.notice-content { font-size: 12px; color: #f4f1e8; line-height: 1.4; margin: 0; }
+.notice-reward {
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(0, 0, 0, 0.35); padding: 4px 8px; border-radius: 6px; font-size: 11px;
+}
+.reward-val { color: var(--accent); font-weight: 700; }
+
+/* ---------------- Nghề Sống: câu cá, nấu nướng, Giỏ Tre ---------------- */
+.btn.small { padding: 7px 12px; font-size: 12.5px; border-radius: 10px; }
+.tiny.warn, p.warn { color: #fcd34d; margin: 2px 0 0; }
+.row-btns { display: flex; gap: 6px; flex-wrap: wrap; flex: none; }
+.shop-card { max-height: 88vh; overflow-y: auto; }
+.ct-icon { font-size: 26px; line-height: 1; margin-right: 10px; flex: none; }
+
+/* Nút nổi cạnh mép nước / bếp lửa */
+.life-actions {
+  position: absolute; left: 50%; bottom: calc(196px + var(--safe-b)); transform: translateX(-50%);
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; z-index: 11; width: max-content; max-width: 94vw;
+}
+.life-btn {
+  padding: 10px 16px; border-radius: 22px; font-weight: 800; font-size: 13.5px; cursor: pointer;
+  border: 2px solid #e0f2fe; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6); white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0,0,0,.45); touch-action: none;
+}
+.life-btn.fish { background: linear-gradient(135deg, #0ea5e9, #0369a1); }
+.life-btn.cook { background: linear-gradient(135deg, #f97316, #b45309); border-color: #fed7aa; }
+.life-btn.trap { background: linear-gradient(135deg, #65a30d, #3f6212); border-color: #d9f99d; }
+.life-btn.trap.wait { background: linear-gradient(135deg, #57534e, #292524); border-color: #a8a29e; font-size: 12.5px; }
+.life-btn.trap.ready { animation: reelPulse .9s infinite ease-in-out; }
+.life-btn:active { transform: scale(.95); }
+
+/* Đang câu: trạng thái phao + nút GIẬT */
+.fish-hud {
+  position: absolute; left: 50%; bottom: calc(184px + var(--safe-b)); transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 11; width: 78%;
+}
+.fish-status {
+  background: rgba(8, 47, 73, .82); border: 1px solid rgba(125, 211, 252, .5); border-radius: 12px;
+  padding: 6px 12px; text-align: center; font-size: 12.5px; line-height: 1.35;
+}
+.fish-status.bite { background: rgba(127, 29, 29, .88); border-color: #fca5a5; animation: biteShake .25s infinite; }
+@keyframes biteShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
+.reel-btn {
+  width: 92px; height: 92px; border-radius: 50%; cursor: pointer; touch-action: none;
+  background: radial-gradient(circle at 35% 30%, #475569, #1e293b); color: #e2e8f0;
+  border: 3px solid rgba(255,255,255,.35); font-size: 20px; font-weight: 900; letter-spacing: .5px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  box-shadow: 0 6px 18px rgba(0,0,0,.5); text-shadow: 0 2px 2px rgba(0,0,0,.6);
+}
+.reel-btn small { font-size: 9.5px; font-weight: 600; opacity: .7; letter-spacing: 0; }
+.reel-btn.bite {
+  background: radial-gradient(circle at 35% 30%, #f87171, #b91c1c); color: #fff; border-color: #fee2e2;
+  animation: reelPulse .45s infinite ease-in-out;
+}
+.reel-btn:active { transform: scale(.93); }
+@keyframes reelPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 10px rgba(248, 113, 113, .6); }
+  50% { transform: scale(1.12); box-shadow: 0 0 28px rgba(248, 113, 113, 1); }
+}
+
+/* Câu được cá */
+.catch-toast {
+  position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%);
+  display: flex; align-items: center; gap: 4px; padding: 10px 18px; border-radius: 16px;
+  background: rgba(12, 20, 10, .9); border: 2px solid #7dd3fc; z-index: 12;
+  box-shadow: 0 8px 28px rgba(0,0,0,.6); animation: catchPop 2.6s forwards; pointer-events: none;
+}
+.catch-toast .ct-icon { font-size: 38px; }
+.catch-toast b { font-size: 16px; }
+.catch-toast.tier-uncommon { border-color: #4ade80; }
+.catch-toast.tier-rare { border-color: #60a5fa; box-shadow: 0 0 24px rgba(96, 165, 250, .6); }
+.catch-toast.tier-legend { border-color: #facc15; box-shadow: 0 0 34px rgba(250, 204, 21, .85); }
+.catch-toast.tier-legend b { color: #fde047; }
+.catch-toast.tier-junk { border-color: #78716c; }
+.catch-toast.tier-meat { border-color: #f87171; }
+@keyframes catchPop {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(.6); }
+  10% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  16%, 82% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -70%) scale(1); }
+}
+
+/* Đang nấu */
+.cook-bar {
+  position: absolute; left: 50%; bottom: calc(196px + var(--safe-b)); transform: translateX(-50%);
+  width: 66%; background: rgba(28, 16, 6, .85); border: 1px solid #fdba74; border-radius: 12px;
+  padding: 6px 10px; display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; font-weight: 700; z-index: 11;
+}
+.cook-bar .bar i { background: linear-gradient(90deg, #f97316, #facc15); transition: none; }
+
+/* Buff ăn uống (trong khung nhiệm vụ) */
+.buff-chip {
+  margin-top: 6px; padding: 3px 8px; border-radius: 8px; font-size: 10.5px; font-weight: 700;
+  background: rgba(34, 197, 94, .15); border: 1px solid rgba(74, 222, 128, .5); color: #bbf7d0; width: fit-content;
+}
+
+/* Giỏ Tre */
+.life-skills { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.life-skill { background: rgba(0,0,0,.3); border-radius: 10px; padding: 6px 7px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ls-head { display: flex; flex-wrap: wrap; justify-content: space-between; column-gap: 4px; font-size: 11.5px; }
+.ls-head span { color: var(--accent); font-weight: 700; }
+.bar.ls-bar i { background: linear-gradient(90deg, #22c55e, #a3e635); }
+.bag-grid { grid-template-columns: repeat(5, 1fr); }
+.bag-slot span { font-size: 20px; line-height: 1; }
+.bag-slot.on { border-color: var(--accent); background: rgba(242, 193, 78, .15); }
+.bag-slot.tier-uncommon { border-color: rgba(74, 222, 128, .6); }
+.bag-slot.tier-rare { border-color: rgba(96, 165, 250, .7); }
+.bag-slot.tier-legend { border-color: #facc15; box-shadow: 0 0 8px rgba(250, 204, 21, .5); }
+.bag-slot.tier-food { border-color: rgba(251, 146, 60, .6); }
+.bag-slot.tier-meat { border-color: rgba(248, 113, 113, .6); }
+.bag-detail { background: rgba(0,0,0,.35); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.trap-list { display: flex; flex-direction: column; gap: 4px; }
+.trap-row { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; background: rgba(0,0,0,.3); border-radius: 8px; padding: 5px 9px; }
+.trap-row.ready { border: 1px solid #a3e635; color: #d9f99d; font-weight: 700; }
+
+/* Bếp */
+.cook-list { max-height: 56vh; }
+.cook-row { align-items: flex-start; gap: 4px; }
+.cook-row .grow { display: flex; flex-direction: column; gap: 2px; }
+.cook-row.dim { opacity: .62; }
+
+/* Đố vui: chờ server chấm */
+.trivia-btn.pending { border-color: var(--accent); background: rgba(242, 193, 78, .12); }
+
+/* ---- Canh Nông & Nông Trại Vườn Nhà ---- */
+.visiting-banner {
+  position: absolute; top: calc(52px + var(--safe-t)); left: 8px; right: 8px;
+  background: rgba(20, 24, 18, .92); border: 1.5px solid #facc15; border-radius: 12px;
+  padding: 6px 10px; display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; z-index: 10; box-shadow: 0 4px 16px rgba(0, 0, 0, .45);
+}
+.vb-info { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.vb-icon { font-size: 20px; }
+.vb-btns { display: flex; gap: 6px; }
+
+.farm-card {
+  width: 95%; max-width: 520px; max-height: 85vh;
+  background: #1e261a; border: 1px solid #4d7c0f; border-radius: 16px;
+  padding: 14px; display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .6); color: #fef9c3;
+}
+.farm-title-wrap { display: flex; align-items: center; gap: 8px; }
+.farm-level-badge {
+  background: #84cc16; color: #14532d; font-size: 11px; font-weight: 800;
+  padding: 2px 7px; border-radius: 999px;
+}
+.farm-proverb {
+  font-size: 11px; color: #fde047; text-align: center;
+  background: rgba(0, 0, 0, .25); border-radius: 8px; padding: 4px 8px;
+}
+.farm-xp-bar-wrap { width: 100%; }
+
+.farm-tabs {
+  display: flex; gap: 6px; background: rgba(0, 0, 0, .3); border-radius: 10px; padding: 3px;
+}
+.farm-tab-btn {
+  flex: 1; padding: 6px 4px; font-size: 12px; font-weight: 700; border-radius: 8px;
+  border: none; background: transparent; color: #a1a1aa; cursor: pointer; transition: all .2s;
+}
+.farm-tab-btn.active {
+  background: #4d7c0f; color: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+}
+
+.farm-body {
+  overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 4px;
+}
+.farm-section {
+  background: rgba(0, 0, 0, .25); border: 1px solid rgba(132, 204, 22, .2);
+  border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+}
+.section-title {
+  display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: #fef08a;
+}
+.section-title b { color: #facc15; }
+
+/* Thửa ruộng */
+.plot-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+}
+.plot-card {
+  background: #2a3424; border: 1px solid #3f6212; border-radius: 10px;
+  padding: 8px; display: flex; flex-direction: column; gap: 6px;
+}
+.plot-card.state-plowed { border-color: #854d0e; background: #2f251a; }
+.plot-card.wet { border-color: #0284c7; box-shadow: inset 0 0 8px rgba(56, 189, 248, .15); }
+.plot-card.pest { border-color: #ef4444; background: #381e1e; }
+.plot-card-head {
+  display: flex; justify-content: space-between; align-items: center; font-size: 11.5px;
+}
+.plot-idx { font-weight: 800; color: #d9f99d; }
+
+.plot-meta { display: flex; flex-wrap: wrap; gap: 4px; }
+.soil-tag {
+  font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px;
+}
+.soil-wet { background: rgba(2, 132, 199, .25); color: #7dd3fc; border: 1px solid #0284c7; }
+.soil-dry { background: rgba(180, 83, 9, .25); color: #fde047; border: 1px solid #b45309; }
+.soil-fert { background: rgba(101, 163, 13, .25); color: #bef264; border: 1px solid #65a30d; }
+.soil-pest { background: rgba(239, 68, 68, .25); color: #fca5a5; border: 1px solid #ef4444; animation: pulse 1s infinite; }
+
+.badge.empty { background: rgba(255, 255, 255, .1); color: #d4d4d8; }
+.badge.plowed { background: rgba(180, 83, 9, .25); color: #fed7aa; }
+.badge.growing { background: rgba(34, 197, 94, .25); color: #bbf7d0; }
+.badge.ready { background: #eab308; color: #422006; font-weight: 800; }
+
+.plot-prog-wrap { display: flex; flex-direction: column; gap: 3px; }
+.bar.plot-bar { height: 6px; background: rgba(0, 0, 0, .4); }
+.plot-crop-name { display: flex; justify-content: space-between; color: #fef08a; font-size: 11px; }
+
+.plot-actions { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+.seed-btns { display: flex; gap: 4px; }
+.seed-btns button { flex: 1; font-size: 11px; padding: 4px 2px; }
+.btn.nep-btn { background: #d97706; color: #fff; }
+.harvest-btn { background: #eab308; color: #422006; font-weight: 800; }
+
+/* Chuồng gà */
+.coop-status-bar {
+  display: flex; flex-direction: column; gap: 6px; background: rgba(0, 0, 0, .2);
+  border-radius: 8px; padding: 8px; font-size: 12px;
+}
+.coop-trough { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
+.chicken-roster {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+}
+.chicken-card {
+  background: rgba(0, 0, 0, .25); border: 1px solid rgba(250, 204, 21, .3);
+  border-radius: 8px; padding: 6px; display: flex; align-items: center; gap: 6px;
+}
+.chicken-icon { font-size: 22px; }
+.coop-harvest-bar {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.coop-harvest-item {
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(0, 0, 0, .2); border-radius: 8px; padding: 6px 8px; font-size: 12px;
+}
+
+/* Cối xay */
+.mill-grid { display: flex; flex-direction: column; gap: 6px; }
+.mill-row {
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(0, 0, 0, .2); border-radius: 8px; padding: 6px 10px; font-size: 12px;
+}
+
+/* Mua nhanh */
+.quick-buy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.qb-card {
+  background: rgba(0, 0, 0, .25); border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 8px; padding: 8px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px;
+}
+.qb-card span { font-size: 22px; }
+.qb-card b { font-size: 11.5px; }
+
+/* Sổ lưu bút & Lời chúc */
+.farm-likes-box { background: rgba(225, 29, 72, .1); border-color: rgba(244, 63, 94, .3); }
+.likes-header { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; }
+.cheers-ticker { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.cheer-bubble {
+  background: rgba(0, 0, 0, .3); border-radius: 6px; padding: 4px 8px; font-size: 11px; font-style: italic;
+}
+
+/* Thăm bạn bè */
+.visiting-full-card { display: flex; flex-direction: column; gap: 10px; }
+.vf-header {
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(0, 0, 0, .3); border-radius: 10px; padding: 8px 10px;
+}
+.cheer-action-box {
+  background: rgba(0, 0, 0, .2); border: 1px solid rgba(244, 63, 94, .3);
+  border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 6px;
+}
+.cheer-input-row { display: flex; gap: 6px; }
+.quick-cheers { display: flex; flex-wrap: wrap; gap: 4px; }
+.quick-cheer-tag {
+  background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .15);
+  border-radius: 6px; color: #fde047; font-size: 10.5px; padding: 3px 6px; cursor: pointer; text-align: left;
+}
+.online-farmers-box { display: flex; flex-direction: column; gap: 10px; }
+.search-farmer-row { display: flex; gap: 6px; }
+.farmer-list { display: flex; flex-direction: column; gap: 6px; max-height: 48vh; overflow-y: auto; }
+.farmer-row {
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(0, 0, 0, .25); border-radius: 8px; padding: 6px 10px; border: 1px solid rgba(255, 255, 255, .08);
+}
+.farmer-info { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.farmer-avatar { font-size: 20px; }

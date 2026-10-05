@@ -8,31 +8,90 @@ if (typeof process.loadEnvFile === 'function') {
 }
 
 import { createServer } from 'node:http';
-import { randomUUID } from 'node:crypto';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
-import { World } from './world.ts';
+import { Realm } from './realm.ts';
 import type { Outgoing } from './world.ts';
 import { ProfileStore } from './store.ts';
+import { AccountStore, AuthService, loadAuthSecret } from './auth.ts';
+import type { AuthReply } from './auth.ts';
 import { TICK_MS, SNAP_EVERY, MAX_PLAYERS } from '../../shared/constants.ts';
-import { CLASSES } from '../../shared/data.ts';
-import type { ClassId } from '../../shared/data.ts';
 import type { ClientMsg, ServerMsg } from '../../shared/protocol.ts';
 
 const PORT = Number(process.env.PORT ?? 2567);
 const DATA_DIR = process.env.DATA_DIR ?? './data';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Domain client được gọi API (khi client deploy riêng, ví dụ Vercel). Phiên gửi qua header nên dùng '*' vẫn an toàn.
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 
 const store = new ProfileStore(DATA_DIR, SUPABASE_URL, SUPABASE_KEY);
-const world = new World();
-world.onSave = (p) => {
+const auth = new AuthService(loadAuthSecret(DATA_DIR, process.env.AUTH_SECRET), new AccountStore(DATA_DIR, store.db), store);
+const realm = new Realm();
+realm.onSave = (p) => {
   store.save(p).catch((e) => console.error('[Store] Ghi dữ liệu thất bại:', e));
 };
 
+// ---------------------------------------------------------------- HTTP: health + API đăng nhập nhanh
+
+const CORS_HEADERS = {
+  'access-control-allow-origin': CORS_ORIGIN,
+  'access-control-allow-headers': 'content-type, authorization',
+  'access-control-allow-methods': 'GET, POST, OPTIONS',
+  'access-control-max-age': '86400',
+};
+
+function sendJson(res: ServerResponse, code: number, body: unknown) {
+  res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', ...CORS_HEADERS });
+  res.end(JSON.stringify(body));
+}
+
+function readJson(req: IncomingMessage, limit = 2048): Promise<Record<string, unknown>> {
+  return new Promise((resolve) => {
+    let raw = '';
+    req.setEncoding('utf8');
+    req.on('data', (c: string) => { raw += c; if (raw.length > limit) { raw = ''; req.destroy(); } });
+    req.on('end', () => { try { const v = JSON.parse(raw); resolve(v && typeof v === 'object' ? v : {}); } catch { resolve({}); } });
+    req.on('error', () => resolve({}));
+  });
+}
+
+function bearer(req: IncomingMessage): string {
+  const h = req.headers.authorization ?? '';
+  return h.startsWith('Bearer ') ? h.slice(7).trim() : '';
+}
+
+function reply(res: ServerResponse, r: AuthReply) {
+  if (r.ok) sendJson(res, 200, r.res);
+  else sendJson(res, r.code === 'auth' ? 401 : 400, { error: r.msg, code: r.code });
+}
+
+async function handleApi(req: IncomingMessage, res: ServerResponse, path: string) {
+  if (req.method === 'OPTIONS') { res.writeHead(204, CORS_HEADERS); res.end(); return; }
+  try {
+    if (path === '/api/auth/quick-login' && req.method === 'POST') {
+      const body = await readJson(req);
+      reply(res, await auth.quickLogin(body.email, body.password));
+    } else if (path === '/api/auth/me' && req.method === 'GET') {
+      reply(res, await auth.me(bearer(req)));
+    } else if (path === '/api/auth/claim' && req.method === 'POST') {
+      const body = await readJson(req);
+      reply(res, await auth.claim(bearer(req), body.legacyToken));
+    } else {
+      sendJson(res, 404, { error: 'Không có API này' });
+    }
+  } catch (e) {
+    console.error('[Auth] Lỗi xử lý API:', e);
+    sendJson(res, 500, { error: 'Server đang lỗi, hãy thử lại sau' });
+  }
+}
+
 const http = createServer((req, res) => {
-  if (req.url === '/health') {
+  const path = (req.url ?? '').split('?')[0];
+  if (path.startsWith('/api/')) { void handleApi(req, res, path); return; }
+  if (path === '/health') {
     res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, players: world.players.size, t: world.t }));
+    res.end(JSON.stringify({ ok: true, players: realm.playerCount }));
     return;
   }
   res.writeHead(404); res.end();
@@ -45,51 +104,46 @@ function send(ws: WebSocket, msg: ServerMsg) {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
 }
 
-function cleanName(raw: unknown): string {
-  const s = String(raw ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 14);
-  return s || 'Lữ khách';
-}
-
 wss.on('connection', (ws) => {
   let id: number | null = null;
+  let joining = false;
 
   ws.on('message', async (data) => {
     let msg: ClientMsg;
     try { msg = JSON.parse(String(data)); } catch { return; }
 
     if (id == null) {
-      if (msg.t !== 'join') return;
-      if (world.players.size >= MAX_PLAYERS) { send(ws, { t: 'err', msg: 'Server đầy' }); ws.close(); return; }
+      if (msg.t !== 'join' || joining) return;
+      joining = true;
+      if (realm.playerCount >= MAX_PLAYERS) { send(ws, { t: 'err', msg: 'Server đầy' }); ws.close(); return; }
 
-      let prof = !msg.fresh && ProfileStore.validToken(msg.token) ? await store.load(msg.token) : null;
+      // Phiên đăng nhập -> nhân vật duy nhất của tài khoản (tạo nếu chưa có và có gửi `create`)
+      const r = await auth.resolveJoin(msg.session, msg.create);
       if (ws.readyState !== WebSocket.OPEN) return;
+      if (!r.ok) { send(ws, { t: 'err', msg: r.msg, code: r.code }); ws.close(); return; }
+      const prof = r.prof;
 
-      if (prof && [...world.players.values()].some((p) => p.prof.token === prof!.token)) {
+      if (realm.isOnline(prof.token)) {
         send(ws, { t: 'err', msg: 'Nhân vật này đang online ở thiết bị khác' });
         ws.close();
         return;
       }
-      if (!prof) {
-        const cls: ClassId = msg.cls && CLASSES[msg.cls] ? msg.cls : 'warrior';
-        prof = World.newProfile(randomUUID(), cleanName(msg.name), cls);
-        await store.save(prof);
-      }
-      if (ws.readyState !== WebSocket.OPEN) return;
 
-      id = world.addPlayer(prof);
+      const joined = realm.addPlayer(prof);
+      id = joined.id;
       sockets.set(id, ws);
-      send(ws, { t: 'welcome', id, token: prof.token, st: world.t });
-      console.log(`+ ${prof.name} (${prof.cls} lv${prof.level}) id=${id} online=${world.players.size}`);
+      send(ws, { t: 'welcome', id, st: joined.st, name: prof.name, cls: prof.cls, lv: prof.level, map: joined.map });
+      console.log(`+ ${prof.name} (${prof.cls} lv${prof.level})${r.created ? ' [mới]' : ''} id=${id} map=${joined.map} online=${realm.playerCount}`);
       return;
     }
-    world.handle(id, msg);
+    realm.handle(id, msg);
   });
 
   ws.on('close', () => {
     if (id != null) {
-      world.removePlayer(id);
+      realm.removePlayer(id);
       sockets.delete(id);
-      console.log(`- id=${id} online=${world.players.size}`);
+      console.log(`- id=${id} online=${realm.playerCount}`);
     }
   });
   ws.on('error', () => {});
@@ -120,23 +174,26 @@ function loop() {
   last = now;
   let n = 0;
   while (acc >= TICK_MS && n < 5) {
-    world.tick();
+    realm.tick();
     ticks++;
-    if (ticks % SNAP_EVERY === 0) flush(world.buildSnapshots());
+    flush(realm.drainOutbox());
+    if (ticks % SNAP_EVERY === 0) flush(realm.buildSnapshots());
     acc -= TICK_MS;
     n++;
   }
   if (acc > TICK_MS * 5) acc = 0; // server bị treo lâu: bỏ qua, không đuổi theo
-  if (world.outbox.length) { flush(world.outbox); world.outbox = []; }
+  flush(realm.drainOutbox());
   setTimeout(loop, Math.max(1, TICK_MS - acc));
 }
 loop();
 
-setInterval(() => world.flushSaves(), 30_000);
+// Lưu người chơi có thay đổi mỗi 10 giây. Trên Windows, `node --watch` khởi động lại bằng cách
+// giết tiến trình (không chạy shutdown), nên khoảng này càng ngắn càng ít mất tiến độ.
+setInterval(() => realm.flushSaves(), 10_000);
 
 async function shutdown() {
   console.log('Đang lưu dữ liệu và tắt server…');
-  for (const p of world.players.values()) {
+  for (const p of realm.allPlayers()) {
     try {
       await store.save(p.prof);
     } catch (e) {

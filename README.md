@@ -1,7 +1,7 @@
-# Happy Land – Vùng đất Vui Vẻ — game nhập vai online màn hình dọc
+# Vùng đất Tinh linh — game nhập vai online màn hình dọc
 
-Tài liệu cốt truyện & gameplay: xem doc "Happy Land – Vùng đất Vui Vẻ Cốt truyện & Gameplay".
-Tài liệu art design (nhân vật, vũ khí, tuyệt chiêu, quái): xem doc "Happy Land — Art Design".
+Tài liệu cốt truyện & gameplay: xem [Vùng đất Tinh linh - Cốt truyện & Gameplay.md](<Vùng đất Tinh linh - Cốt truyện & Gameplay.md>).
+Tài liệu art design (nhân vật, vũ khí, tuyệt chiêu, quái): xem [Vùng đất Tinh linh - Art Design.md](<Vùng đất Tinh linh - Art Design.md>).
 
 Bản thử để test gameplay: nhiều người cùng một map, đánh quái, rơi đồ, lên cấp, boss co-op.
 Server quyết định mọi thứ (di chuyển, sát thương, rơi đồ); client chỉ gửi input và vẽ.
